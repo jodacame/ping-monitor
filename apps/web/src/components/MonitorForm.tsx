@@ -5,6 +5,7 @@ import { ApiError, api } from '../lib/api';
 import { cn } from '../lib/cn';
 import type { CreateMonitorInput, Monitor } from '../lib/types';
 import { Badge, Button, Field, IconButton, Input, SegmentedControl, Select } from './ui';
+import { AssertionsBuilder, type AssertionGroup } from './AssertionsBuilder';
 
 const INTERVALS = [
   { value: '30', label: '30s' },
@@ -37,8 +38,12 @@ export function MonitorForm({
   const [groupId, setGroupId] = useState<string | null>(monitor?.groupId ?? null);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [newGroup, setNewGroup] = useState('');
+  const [assertions, setAssertions] = useState<AssertionGroup | null>(
+    (monitor?.config?.assertions as AssertionGroup | undefined) ?? null,
+  );
   const [advanced, setAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isHttp = (monitor?.type ?? 'http') === 'http';
 
   const regionsQuery = useQuery({ queryKey: ['regions'], queryFn: api.listRegions });
   const groupsQuery = useQuery({
@@ -58,6 +63,14 @@ export function MonitorForm({
 
   const save = useMutation({
     mutationFn: () => {
+      // Preserve existing HTTP config (method, etc.) and merge assertions.
+      const ruleCount = assertions?.rules.length ?? 0;
+      const mergedConfig: Record<string, unknown> = { ...(monitor?.config ?? {}) };
+      if (ruleCount > 0) mergedConfig.assertions = assertions;
+      else delete mergedConfig.assertions;
+      // On create with no assertions, let the backend apply defaults.
+      const includeConfig = editing || ruleCount > 0;
+
       const payload: CreateMonitorInput = {
         name: name.trim(),
         type: monitor?.type ?? 'http',
@@ -67,6 +80,7 @@ export function MonitorForm({
         failureThreshold: Number(failureThreshold),
         groupId,
         ...(regionIds.length ? { regionIds } : {}),
+        ...(includeConfig ? { config: mergedConfig } : {}),
       };
       return monitor
         ? api.updateMonitor(workspaceId, monitor.id, payload)
@@ -217,6 +231,15 @@ export function MonitorForm({
               )}
             </div>
           </Field>
+
+          {isHttp && (
+            <Field
+              label="Health checks"
+              hint="Optional. Validate the response beyond the status code."
+            >
+              <AssertionsBuilder value={assertions} onChange={setAssertions} />
+            </Field>
+          )}
         </div>
       </div>
 

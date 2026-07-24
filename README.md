@@ -117,7 +117,9 @@ concurrency, retention windows, …).
 
 ## Roadmap
 
-- [ ] Alerting connectors (SMTP + Telegram first) consuming the event bus
+- [x] Alerting connectors (SMTP, Telegram, generic webhook) consuming the event bus
+- [x] HTTP health assertions (status / body / JSON path / header / latency, AND/OR)
+- [x] One-level monitor groups (folders)
 - [ ] TCP and ICMP check executors
 - [ ] SSL certificate expiry monitoring
 - [ ] Public status pages
