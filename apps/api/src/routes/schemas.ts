@@ -72,6 +72,25 @@ export const updateGroupSchema = z
   .partial()
   .refine((obj) => Object.keys(obj).length > 0, { message: 'No fields to update' });
 
+// --- Status pages ------------------------------------------------------------
+
+export const createStatusPageSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  slug: z.string().trim().max(80).optional(),
+  description: z.string().trim().max(500).optional(),
+  monitorIds: z.array(z.string()).max(200).optional(),
+});
+
+export const updateStatusPageSchema = z
+  .object({
+    title: z.string().trim().min(1).max(120),
+    slug: z.string().trim().min(1).max(80),
+    description: z.string().trim().max(500).nullable(),
+    monitorIds: z.array(z.string()).max(200),
+  })
+  .partial()
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'No fields to update' });
+
 export const listMonitorsQuerySchema = z.object({
   status: z.enum(['up', 'down', 'paused', 'pending']).optional(),
   tagId: z.string().optional(),

@@ -283,6 +283,17 @@ export class MonitorRepository {
     return (res.rowCount ?? 0) > 0;
   }
 
+  /** Resolve monitor public ids to internal ids within a workspace (order preserved). */
+  async resolveInternalIds(workspaceId: string, publicIds: readonly string[]): Promise<string[]> {
+    if (publicIds.length === 0) return [];
+    const res = await this.db.query<{ id: string; public_id: string }>(
+      'SELECT id, public_id FROM monitors WHERE workspace_id = $1 AND public_id = ANY($2::text[])',
+      [workspaceId, publicIds],
+    );
+    const byPublic = new Map(res.rows.map((r) => [r.public_id, r.id]));
+    return publicIds.map((p) => byPublic.get(p)).filter((v): v is string => Boolean(v));
+  }
+
   /** Region ids a monitor is currently probed from. */
   async listRegionIds(monitorId: string): Promise<number[]> {
     const res = await this.db.query<{ region_id: number }>(

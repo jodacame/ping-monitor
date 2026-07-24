@@ -91,6 +91,39 @@ export interface CreateChannelInput {
   enabled?: boolean;
 }
 
+export interface StatusPageSummary {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  updatedAt: string;
+}
+
+export interface StatusPageDetail extends StatusPageSummary {
+  monitorIds: string[];
+}
+
+export interface CreateStatusPageInput {
+  title: string;
+  slug?: string;
+  description?: string;
+  monitorIds?: string[];
+}
+
+export interface PublicStatusMonitor {
+  name: string;
+  status: MonitorStatus;
+  uptime24h: number | null;
+  bars: Array<number | null>;
+}
+
+export interface PublicStatusPage {
+  title: string;
+  description: string | null;
+  updatedAt: string;
+  monitors: PublicStatusMonitor[];
+}
+
 export interface Paginated<T> {
   items: T[];
   page: number;

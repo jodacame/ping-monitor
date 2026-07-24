@@ -4,15 +4,19 @@ import type {
   Channel,
   CreateChannelInput,
   CreateMonitorInput,
+  CreateStatusPageInput,
   Incident,
   Monitor,
   MonitorGroup,
   MonitorStatsResponse,
   Overview,
   Paginated,
+  PublicStatusPage,
   RecentCheck,
   Region,
   StatsWindow,
+  StatusPageDetail,
+  StatusPageSummary,
   Workspace,
   WorkspaceInsights,
 } from './types';
@@ -198,6 +202,32 @@ export const api = {
 
   deleteGroup(workspaceId: string, id: string): Promise<void> {
     return request(`/workspaces/${workspaceId}/groups/${id}`, { method: 'DELETE' });
+  },
+
+  // --- Status pages ----------------------------------------------------------
+
+  listStatusPages(workspaceId: string): Promise<StatusPageSummary[]> {
+    return request(`/workspaces/${workspaceId}/status-pages`);
+  },
+
+  createStatusPage(workspaceId: string, input: CreateStatusPageInput): Promise<StatusPageDetail> {
+    return request(`/workspaces/${workspaceId}/status-pages`, { method: 'POST', body: input });
+  },
+
+  updateStatusPage(
+    workspaceId: string,
+    id: string,
+    input: Partial<CreateStatusPageInput>,
+  ): Promise<StatusPageDetail> {
+    return request(`/workspaces/${workspaceId}/status-pages/${id}`, { method: 'PATCH', body: input });
+  },
+
+  deleteStatusPage(workspaceId: string, id: string): Promise<void> {
+    return request(`/workspaces/${workspaceId}/status-pages/${id}`, { method: 'DELETE' });
+  },
+
+  publicStatus(slug: string): Promise<PublicStatusPage> {
+    return request(`/public/status/${slug}`, { auth: false });
   },
 
   overview(workspaceId: string): Promise<Overview> {

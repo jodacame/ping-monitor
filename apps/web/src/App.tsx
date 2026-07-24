@@ -11,6 +11,7 @@ import { MonitorFormPage } from './pages/MonitorFormPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { StatusPagesPage } from './pages/StatusPagesPage';
+import { StatusPublicPage } from './pages/StatusPublicPage';
 
 export function App() {
   const { ready, user } = useAuth();
@@ -28,6 +29,9 @@ export function App() {
 
   return (
     <Routes>
+      {/* Public, unauthenticated status page */}
+      <Route path="/status/:slug" element={<StatusPublicPage />} />
+
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
 

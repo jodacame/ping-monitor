@@ -15,6 +15,7 @@ import { GroupService } from './services/group-service.js';
 import { InfraService } from './services/infra-service.js';
 import { MonitorService } from './services/monitor-service.js';
 import { StatsService } from './services/stats-service.js';
+import { StatusPageService } from './services/status-page-service.js';
 
 /**
  * Application composition root. Wires configuration, infrastructure clients and
@@ -33,6 +34,7 @@ export interface AppContext {
   readonly infra: InfraService;
   readonly channels: ChannelService;
   readonly groups: GroupService;
+  readonly statusPages: StatusPageService;
   close(): Promise<void>;
 }
 
@@ -64,6 +66,7 @@ export function buildContext(): AppContext {
     infra: new InfraService(db),
     channels: new ChannelService(db),
     groups: new GroupService(db),
+    statusPages: new StatusPageService(db),
     async close(): Promise<void> {
       await db.close();
     },
