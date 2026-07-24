@@ -1,4 +1,5 @@
 import { performance } from 'node:perf_hooks';
+import tls from 'node:tls';
 import { z } from 'zod';
 import {
   CheckErrorKind,
@@ -37,6 +38,8 @@ export const httpConfigSchema = z
     followRedirects: z.boolean().default(true),
     /** Optional health assertions (AND/OR tree) evaluated against the response. */
     assertions: assertionGroupSchema.optional(),
+    /** For HTTPS: fail the check if the TLS cert expires within this many days. */
+    sslExpiryThresholdDays: z.coerce.number().int().positive().optional(),
   })
   .strip();
 
@@ -49,6 +52,26 @@ export function parseHttpConfig(raw: unknown): HttpConfig {
 
 function statusAccepted(status: number, ranges: HttpConfig['acceptedStatusRanges']): boolean {
   return ranges.some(([lo, hi]) => status >= lo && status <= hi);
+}
+
+/** Days until the host's TLS certificate expires, or null if unavailable. */
+function sslDaysRemaining(host: string, timeoutMs: number): Promise<number | null> {
+  return new Promise((resolve) => {
+    const socket = tls.connect(
+      { host, port: 443, servername: host, rejectUnauthorized: false, timeout: timeoutMs },
+      () => {
+        const cert = socket.getPeerCertificate();
+        socket.end();
+        if (!cert.valid_to) return resolve(null);
+        resolve(Math.floor((new Date(cert.valid_to).getTime() - Date.now()) / 86_400_000));
+      },
+    );
+    socket.once('error', () => resolve(null));
+    socket.once('timeout', () => {
+      socket.destroy();
+      resolve(null);
+    });
+  });
 }
 
 /** Executes HTTP/HTTPS probes using the platform `fetch` with a hard timeout. */
@@ -129,6 +152,18 @@ export class HttpCheckExecutor implements CheckExecutor {
         if (!result.ok) {
           return outcomeDown(
             { kind: CheckErrorKind.Protocol, message: `Assertion failed: ${result.reason ?? ''}` },
+            elapsed,
+            response.status,
+          );
+        }
+      }
+
+      // SSL certificate expiry guard (HTTPS only).
+      if (config.sslExpiryThresholdDays !== undefined && context.target.startsWith('https:')) {
+        const days = await sslDaysRemaining(new URL(context.target).hostname, context.timeoutMs);
+        if (days !== null && days <= config.sslExpiryThresholdDays) {
+          return outcomeDown(
+            { kind: CheckErrorKind.Tls, message: `Certificate expires in ${days} day(s)` },
             elapsed,
             response.status,
           );

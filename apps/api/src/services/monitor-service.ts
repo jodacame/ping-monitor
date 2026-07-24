@@ -1,5 +1,5 @@
 import { MonitorType, NotFoundError, ValidationError, newId } from '@ping/core';
-import { parseHttpConfig } from '@ping/checks';
+import { parseHttpConfig, parseTcpConfig } from '@ping/checks';
 import {
   type Database,
   InfraRepository,
@@ -170,7 +170,22 @@ export class MonitorService {
         );
       }
     }
-    throw new ValidationError(`Monitor type "${type}" is not supported yet`);
+
+    if (type === MonitorType.Tcp) {
+      if (!target.trim()) throw new ValidationError('TCP monitor requires a host');
+      try {
+        return { ...parseTcpConfig(config) };
+      } catch {
+        throw new ValidationError('TCP monitor requires a valid port (1–65535)');
+      }
+    }
+
+    if (type === MonitorType.Icmp) {
+      if (!target.trim()) throw new ValidationError('Ping monitor requires a host');
+      return {};
+    }
+
+    throw new ValidationError(`Monitor type "${type}" is not supported`);
   }
 
   private async resolveRegions(requested: number[]): Promise<number[]> {

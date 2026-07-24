@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronDown, ChevronUp, FolderPlus, X } from 'lucide-react';
 import { ApiError, api } from '../lib/api';
 import { cn } from '../lib/cn';
-import type { CreateMonitorInput, Monitor } from '../lib/types';
+import type { CreateMonitorInput, Monitor, MonitorType } from '../lib/types';
 import { Badge, Button, Field, IconButton, Input, SegmentedControl, Select } from './ui';
 import { AssertionsBuilder, type AssertionGroup } from './AssertionsBuilder';
 
@@ -13,6 +13,12 @@ const INTERVALS = [
   { value: '300', label: '5 min' },
   { value: '900', label: '15 min' },
 ] as const;
+
+const TYPE_OPTIONS = [
+  { value: 'http' as MonitorType, label: 'HTTP' },
+  { value: 'tcp' as MonitorType, label: 'TCP' },
+  { value: 'icmp' as MonitorType, label: 'Ping' },
+];
 
 /** Create/edit monitor form (used as a page). */
 export function MonitorForm({
@@ -29,8 +35,13 @@ export function MonitorForm({
   const editing = Boolean(monitor);
   const queryClient = useQueryClient();
 
+  const [type, setType] = useState<MonitorType>(monitor?.type ?? 'http');
   const [name, setName] = useState(monitor?.name ?? '');
   const [target, setTarget] = useState(monitor?.target ?? '');
+  const [port, setPort] = useState(String((monitor?.config?.port as number | undefined) ?? ''));
+  const [sslDays, setSslDays] = useState(
+    String((monitor?.config?.sslExpiryThresholdDays as number | undefined) ?? ''),
+  );
   const [interval, setInterval] = useState(String(monitor?.intervalSeconds ?? 60));
   const [timeoutMs, setTimeoutMs] = useState(String(monitor?.timeoutMs ?? 10000));
   const [failureThreshold, setFailureThreshold] = useState(String(monitor?.failureThreshold ?? 3));
@@ -43,7 +54,8 @@ export function MonitorForm({
   );
   const [advanced, setAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isHttp = (monitor?.type ?? 'http') === 'http';
+  const isHttp = type === 'http';
+  const isTcp = type === 'tcp';
 
   const regionsQuery = useQuery({ queryKey: ['regions'], queryFn: api.listRegions });
   const groupsQuery = useQuery({
@@ -63,24 +75,31 @@ export function MonitorForm({
 
   const save = useMutation({
     mutationFn: () => {
-      // Preserve existing HTTP config (method, etc.) and merge assertions.
-      const ruleCount = assertions?.rules.length ?? 0;
-      const mergedConfig: Record<string, unknown> = { ...(monitor?.config ?? {}) };
-      if (ruleCount > 0) mergedConfig.assertions = assertions;
-      else delete mergedConfig.assertions;
-      // On create with no assertions, let the backend apply defaults.
-      const includeConfig = editing || ruleCount > 0;
+      let config: Record<string, unknown> | undefined;
+      if (type === 'http') {
+        const ruleCount = assertions?.rules.length ?? 0;
+        const base: Record<string, unknown> = { ...(monitor?.config ?? {}) };
+        if (ruleCount > 0) base.assertions = assertions;
+        else delete base.assertions;
+        if (sslDays.trim()) base.sslExpiryThresholdDays = Number(sslDays);
+        else delete base.sslExpiryThresholdDays;
+        config = editing || ruleCount > 0 || sslDays.trim() ? base : undefined;
+      } else if (type === 'tcp') {
+        config = { port: Number(port) };
+      } else {
+        config = {};
+      }
 
       const payload: CreateMonitorInput = {
         name: name.trim(),
-        type: monitor?.type ?? 'http',
+        type,
         target: target.trim(),
         intervalSeconds: Number(interval),
         timeoutMs: Number(timeoutMs),
         failureThreshold: Number(failureThreshold),
         groupId,
         ...(regionIds.length ? { regionIds } : {}),
-        ...(includeConfig ? { config: mergedConfig } : {}),
+        ...(config !== undefined ? { config } : {}),
       };
       return monitor
         ? api.updateMonitor(workspaceId, monitor.id, payload)
@@ -110,14 +129,50 @@ export function MonitorForm({
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="My website" />
       </Field>
 
-      <Field label="URL to monitor" hint="Include https:// — we’ll check it responds correctly.">
-        <Input
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-          placeholder="https://example.com"
-          inputMode="url"
-        />
+      <Field label="Type" hint={editing ? 'Type can’t be changed after creation.' : undefined}>
+        <div className={cn(editing && 'pointer-events-none opacity-60')}>
+          <SegmentedControl
+            options={TYPE_OPTIONS}
+            value={type}
+            onChange={(v) => !editing && setType(v)}
+          />
+        </div>
       </Field>
+
+      {isHttp ? (
+        <Field label="URL to monitor" hint="Include https:// — we’ll check it responds correctly.">
+          <Input
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            placeholder="https://example.com"
+            inputMode="url"
+          />
+        </Field>
+      ) : isTcp ? (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2">
+            <Field label="Host">
+              <Input
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                placeholder="db.example.com"
+              />
+            </Field>
+          </div>
+          <Field label="Port">
+            <Input
+              value={port}
+              onChange={(e) => setPort(e.target.value)}
+              placeholder="5432"
+              inputMode="numeric"
+            />
+          </Field>
+        </div>
+      ) : (
+        <Field label="Host" hint="Hostname or IP address to ping.">
+          <Input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="1.1.1.1" />
+        </Field>
+      )}
 
       <Field label="Check every">
         <SegmentedControl options={INTERVALS} value={interval} onChange={setInterval} />
@@ -234,6 +289,21 @@ export function MonitorForm({
 
           {isHttp && (
             <Field
+              label="SSL certificate"
+              hint="Alert if the HTTPS certificate expires within this many days (optional)."
+            >
+              <Input
+                value={sslDays}
+                onChange={(e) => setSslDays(e.target.value)}
+                placeholder="14"
+                inputMode="numeric"
+                className="w-32"
+              />
+            </Field>
+          )}
+
+          {isHttp && (
+            <Field
               label="Health checks"
               hint="Optional. Validate the response beyond the status code."
             >
@@ -250,7 +320,7 @@ export function MonitorForm({
         <Button
           onClick={() => save.mutate()}
           loading={save.isPending}
-          disabled={!name.trim() || !target.trim()}
+          disabled={!name.trim() || !target.trim() || (isTcp && !port.trim())}
         >
           {editing ? 'Save changes' : 'Create monitor'}
         </Button>

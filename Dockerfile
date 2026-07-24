@@ -9,6 +9,11 @@ FROM node:26-slim
 ENV NODE_ENV=production
 WORKDIR /app
 
+# iputils-ping is required by the ICMP (ping) check executor.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends iputils-ping \
+  && rm -rf /var/lib/apt/lists/*
+
 # pnpm via corepack.
 RUN corepack enable
 
