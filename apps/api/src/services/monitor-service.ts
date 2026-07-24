@@ -5,6 +5,7 @@ import {
   InfraRepository,
   type ListMonitorsFilter,
   type MonitorRecord,
+  MonitorGroupRepository,
   MonitorRepository,
 } from '@ping/db';
 
@@ -19,6 +20,8 @@ export interface CreateMonitorInput {
   readonly recoveryThreshold: number;
   readonly quorum: number;
   readonly regionIds: number[];
+  /** Public id of the group to place this monitor in, or null for none. */
+  readonly groupId?: string | null;
 }
 
 export type UpdateMonitorInput = Partial<
@@ -33,6 +36,7 @@ export type UpdateMonitorInput = Partial<
     | 'recoveryThreshold'
     | 'quorum'
     | 'regionIds'
+    | 'groupId'
   >
 >;
 
@@ -52,6 +56,7 @@ export class MonitorService {
     const config = this.normalizeConfig(input.type, input.target, input.config);
     const regionIds = await this.resolveRegions(input.regionIds);
     const quorum = this.clampQuorum(input.quorum, regionIds.length);
+    const groupInternalId = await this.resolveGroup(workspaceId, input.groupId ?? null);
 
     const monitor = await this.db.transaction((tx) =>
       new MonitorRepository(tx).createWithRegions({
@@ -66,6 +71,7 @@ export class MonitorService {
         failureThreshold: input.failureThreshold,
         recoveryThreshold: input.recoveryThreshold,
         quorum,
+        groupInternalId,
         regionIds,
       }),
     );
@@ -96,6 +102,9 @@ export class MonitorService {
         ? this.normalizeConfig(existing.type, input.target ?? existing.target, input.config)
         : undefined;
 
+    const groupInternalId =
+      input.groupId !== undefined ? await this.resolveGroup(workspaceId, input.groupId) : undefined;
+
     const updated = await this.db.transaction(async (tx) => {
       const repo = new MonitorRepository(tx);
       const monitor = await repo.update(publicId, workspaceId, {
@@ -111,12 +120,13 @@ export class MonitorService {
           ? { recoveryThreshold: input.recoveryThreshold }
           : {}),
         ...(input.quorum !== undefined ? { quorum: input.quorum } : {}),
+        ...(groupInternalId !== undefined ? { groupInternalId } : {}),
       });
       if (!monitor) throw new NotFoundError('Monitor not found');
 
       if (input.regionIds !== undefined) {
         const regionIds = await this.resolveRegions(input.regionIds);
-        await repo.replaceAssignments(monitor.id, regionIds);
+        await repo.replaceAssignments(publicId, workspaceId, regionIds);
       }
       return monitor;
     });
@@ -176,5 +186,19 @@ export class MonitorService {
 
   private clampQuorum(quorum: number, regionCount: number): number {
     return Math.min(Math.max(1, quorum), Math.max(1, regionCount));
+  }
+
+  /** Resolve a group public id to its internal id (null when ungrouped). */
+  private async resolveGroup(
+    workspaceId: string,
+    groupPublicId: string | null,
+  ): Promise<string | null> {
+    if (!groupPublicId) return null;
+    const id = await new MonitorGroupRepository(this.db).resolveInternalId(
+      groupPublicId,
+      workspaceId,
+    );
+    if (!id) throw new ValidationError('Group not found');
+    return id;
   }
 }

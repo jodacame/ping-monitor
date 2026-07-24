@@ -1,19 +1,22 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, Plus, Search } from 'lucide-react';
+import { Activity, FolderPlus, Plus, Search } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import type { Monitor } from '../lib/types';
+import type { Monitor, MonitorGroup } from '../lib/types';
 import { AppShell } from '../components/AppShell';
 import { DashboardAside } from '../components/DashboardAside';
 import { MonitorList } from '../components/MonitorList';
+import { MonitorGroups } from '../components/MonitorGroups';
 import { MonitorDetailDrawer } from '../components/MonitorDetailDrawer';
 import { MonitorFormDrawer } from '../components/MonitorFormDrawer';
 import {
   Badge,
   Button,
+  ConfirmDialog,
   Drawer,
   EmptyState,
+  IconButton,
   Input,
   SegmentedControl,
   Skeleton,
@@ -37,6 +40,7 @@ export function DashboardPage() {
   const [selected, setSelected] = useState<Monitor | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Monitor | null>(null);
+  const [groupToDelete, setGroupToDelete] = useState<MonitorGroup | null>(null);
 
   const overview = useQuery({
     queryKey: ['overview', workspaceId],
@@ -64,6 +68,12 @@ export function DashboardPage() {
     refetchInterval: 15_000,
   });
 
+  const groups = useQuery({
+    queryKey: ['groups', workspaceId],
+    queryFn: () => api.listGroups(workspaceId),
+    enabled: Boolean(workspaceId),
+  });
+
   const togglePause = useMutation({
     mutationFn: (m: Monitor) =>
       m.status === 'paused'
@@ -75,7 +85,28 @@ export function DashboardPage() {
     },
   });
 
+  const invalidateGroups = async (): Promise<void> => {
+    await queryClient.invalidateQueries({ queryKey: ['groups', workspaceId] });
+    await queryClient.invalidateQueries({ queryKey: ['monitors', workspaceId] });
+  };
+  const createGroup = useMutation({
+    mutationFn: () => api.createGroup(workspaceId, 'New group'),
+    onSuccess: invalidateGroups,
+  });
+  const renameGroup = useMutation({
+    mutationFn: (v: { id: string; name: string }) => api.renameGroup(workspaceId, v.id, v.name),
+    onSuccess: invalidateGroups,
+  });
+  const deleteGroup = useMutation({
+    mutationFn: (id: string) => api.deleteGroup(workspaceId, id),
+    onSuccess: async () => {
+      await invalidateGroups();
+      setGroupToDelete(null);
+    },
+  });
+
   const items = monitors.data?.items ?? [];
+  const groupList = groups.data ?? [];
 
   const openNew = (): void => {
     setEditing(null);
@@ -123,7 +154,16 @@ export function DashboardPage() {
                   className="pl-9"
                 />
               </div>
-              <SegmentedControl options={STATUS_FILTERS} value={status} onChange={setStatus} />
+              <div className="flex items-center gap-2">
+                <SegmentedControl options={STATUS_FILTERS} value={status} onChange={setStatus} />
+                <IconButton
+                  label="New group"
+                  variant="secondary"
+                  onClick={() => createGroup.mutate()}
+                >
+                  <FolderPlus size={16} />
+                </IconButton>
+              </div>
             </div>
 
             {monitors.isLoading ? (
@@ -132,12 +172,23 @@ export function DashboardPage() {
                   <Skeleton key={i} className="h-16" />
                 ))}
               </div>
-            ) : items.length > 0 ? (
-              <MonitorList
-                monitors={items}
-                onSelect={setSelected}
-                onTogglePause={(m) => togglePause.mutate(m)}
-              />
+            ) : items.length > 0 || groupList.length > 0 ? (
+              groupList.length > 0 ? (
+                <MonitorGroups
+                  groups={groupList}
+                  monitors={items}
+                  onSelect={setSelected}
+                  onTogglePause={(m) => togglePause.mutate(m)}
+                  onRenameGroup={(id, name) => renameGroup.mutate({ id, name })}
+                  onDeleteGroup={setGroupToDelete}
+                />
+              ) : (
+                <MonitorList
+                  monitors={items}
+                  onSelect={setSelected}
+                  onTogglePause={(m) => togglePause.mutate(m)}
+                />
+              )
             ) : (
               <EmptyState
                 icon={<Activity size={22} />}
@@ -166,6 +217,8 @@ export function DashboardPage() {
               <DashboardAside
                 overview={overview.data}
                 insights={insights.data}
+                monitors={items}
+                onSelect={setSelected}
                 loading={overview.isLoading || insights.isLoading}
               />
             </div>
@@ -203,6 +256,22 @@ export function DashboardPage() {
         onClose={() => setFormOpen(false)}
         workspaceId={workspaceId}
         monitor={editing}
+      />
+
+      <ConfirmDialog
+        open={Boolean(groupToDelete)}
+        onClose={() => setGroupToDelete(null)}
+        onConfirm={() => groupToDelete && deleteGroup.mutate(groupToDelete.id)}
+        title="Delete group?"
+        message={
+          <>
+            <strong className="text-fg">{groupToDelete?.name}</strong> will be removed. Its monitors
+            are kept and moved to Ungrouped.
+          </>
+        }
+        confirmLabel="Delete group"
+        danger
+        loading={deleteGroup.isPending}
       />
     </AppShell>
   );

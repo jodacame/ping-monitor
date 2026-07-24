@@ -21,3 +21,4 @@ export * from './repositories/health-repository.js';
 export * from './repositories/infra-repository.js';
 export * from './repositories/stats-repository.js';
 export * from './repositories/notification-repository.js';
+export * from './repositories/group-repository.js';

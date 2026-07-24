@@ -26,14 +26,24 @@ interface MonitorRow {
   last_checked_at: Date | null;
   last_status_changed_at: Date | null;
   last_response_ms: number | null;
+  group_public_id: string | null;
+  group_name: string | null;
   created_at: Date;
   updated_at: Date;
 }
 
-const COLUMNS = `id, public_id, workspace_id, name, type, target, config,
-  interval_seconds, timeout_ms, failure_threshold, recovery_threshold, quorum,
-  enabled, status, last_checked_at, last_status_changed_at, last_response_ms,
-  created_at, updated_at`;
+// Columns returned by INSERT/UPDATE (single-table; no group join possible here).
+const RETURNING = 'public_id';
+
+// Joined projection used by all reads, exposing the group's public id + name.
+const SELECT_JOINED = `
+  SELECT m.id, m.public_id, m.workspace_id, m.name, m.type, m.target, m.config,
+         m.interval_seconds, m.timeout_ms, m.failure_threshold, m.recovery_threshold,
+         m.quorum, m.enabled, m.status, m.last_checked_at, m.last_status_changed_at,
+         m.last_response_ms, m.created_at, m.updated_at,
+         g.public_id AS group_public_id, g.name AS group_name
+  FROM monitors m
+  LEFT JOIN monitor_groups g ON g.id = m.group_id`;
 
 function toRecord(row: MonitorRow): MonitorRecord {
   return {
@@ -54,6 +64,8 @@ function toRecord(row: MonitorRow): MonitorRecord {
     lastCheckedAt: row.last_checked_at,
     lastStatusChangedAt: row.last_status_changed_at,
     lastResponseMs: row.last_response_ms,
+    groupId: row.group_public_id,
+    groupName: row.group_name,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -71,6 +83,8 @@ export interface CreateMonitorInput {
   readonly failureThreshold: number;
   readonly recoveryThreshold: number;
   readonly quorum: number;
+  /** Internal group id, or null for ungrouped. */
+  readonly groupInternalId: string | null;
   /** Region ids this monitor is probed from (>= 1). */
   readonly regionIds: readonly number[];
 }
@@ -84,6 +98,8 @@ export interface UpdateMonitorInput {
   readonly failureThreshold?: number;
   readonly recoveryThreshold?: number;
   readonly quorum?: number;
+  /** undefined = unchanged; null = clear; string = set internal group id. */
+  readonly groupInternalId?: string | null;
 }
 
 export interface ListMonitorsFilter {
@@ -102,22 +118,19 @@ export interface ListMonitorsResult {
 
 /**
  * Persistence for monitors and their per-region scheduling assignments.
- *
- * Methods that mutate both `monitors` and `monitor_assignments`
- * (`createWithRegions`, `setEnabled`) must be invoked within a transaction by
- * passing a transaction-scoped `Queryable` to the constructor.
+ * Reads expose the monitor's group (public id + name) via a left join.
  */
 export class MonitorRepository {
   constructor(private readonly db: Queryable) {}
 
   /** Create a monitor together with one assignment per region. */
   async createWithRegions(input: CreateMonitorInput): Promise<MonitorRecord> {
-    const res = await this.db.query<MonitorRow>(
+    const res = await this.db.query<{ public_id: string }>(
       `INSERT INTO monitors
          (public_id, workspace_id, name, type, target, config,
-          interval_seconds, timeout_ms, failure_threshold, recovery_threshold, quorum)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-       RETURNING ${COLUMNS}`,
+          interval_seconds, timeout_ms, failure_threshold, recovery_threshold, quorum, group_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       RETURNING ${RETURNING}`,
       [
         input.publicId,
         input.workspaceId,
@@ -130,18 +143,28 @@ export class MonitorRepository {
         input.failureThreshold,
         input.recoveryThreshold,
         input.quorum,
+        input.groupInternalId,
       ],
     );
-    const monitor = toRecord(res.rows[0]!);
-    await this.replaceAssignments(monitor.id, input.regionIds);
-    return monitor;
+    const publicId = res.rows[0]!.public_id;
+    await this.replaceAssignments(publicId, input.workspaceId, input.regionIds);
+    return (await this.findByPublicId(publicId, input.workspaceId))!;
   }
 
-  /** Replace the set of regions a monitor is probed from. */
-  async replaceAssignments(monitorId: string, regionIds: readonly number[]): Promise<void> {
+  /** Replace the set of regions a monitor (by public id) is probed from. */
+  async replaceAssignments(
+    publicId: string,
+    workspaceId: string,
+    regionIds: readonly number[],
+  ): Promise<void> {
+    const res = await this.db.query<{ id: string }>(
+      'SELECT id FROM monitors WHERE public_id = $1 AND workspace_id = $2',
+      [publicId, workspaceId],
+    );
+    const monitorId = res.rows[0]?.id;
+    if (!monitorId) return;
     await this.db.query('DELETE FROM monitor_assignments WHERE monitor_id = $1', [monitorId]);
     if (regionIds.length === 0) return;
-    // Bulk insert with unnest for a single round-trip.
     await this.db.query(
       `INSERT INTO monitor_assignments (monitor_id, region_id)
        SELECT $1, r FROM unnest($2::smallint[]) AS r
@@ -152,7 +175,7 @@ export class MonitorRepository {
 
   async findByPublicId(publicId: string, workspaceId: string): Promise<MonitorRecord | null> {
     const res = await this.db.query<MonitorRow>(
-      `SELECT ${COLUMNS} FROM monitors WHERE public_id = $1 AND workspace_id = $2`,
+      `${SELECT_JOINED} WHERE m.public_id = $1 AND m.workspace_id = $2`,
       [publicId, workspaceId],
     );
     const row = res.rows[0];
@@ -187,9 +210,7 @@ export class MonitorRepository {
 
     params.push(filter.limit, filter.offset);
     const rows = await this.db.query<MonitorRow>(
-      `SELECT ${COLUMNS}
-       FROM monitors m
-       WHERE ${where}
+      `${SELECT_JOINED} WHERE ${where}
        ORDER BY m.created_at DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
@@ -218,18 +239,19 @@ export class MonitorRepository {
     if (input.failureThreshold !== undefined) set('failure_threshold', input.failureThreshold);
     if (input.recoveryThreshold !== undefined) set('recovery_threshold', input.recoveryThreshold);
     if (input.quorum !== undefined) set('quorum', input.quorum);
+    if (input.groupInternalId !== undefined) set('group_id', input.groupInternalId);
 
     if (sets.length === 0) return this.findByPublicId(publicId, workspaceId);
 
     params.push(publicId, workspaceId);
-    const res = await this.db.query<MonitorRow>(
+    const res = await this.db.query<{ public_id: string }>(
       `UPDATE monitors SET ${sets.join(', ')}
        WHERE public_id = $${params.length - 1} AND workspace_id = $${params.length}
-       RETURNING ${COLUMNS}`,
+       RETURNING ${RETURNING}`,
       params,
     );
-    const row = res.rows[0];
-    return row ? toRecord(row) : null;
+    if (res.rows.length === 0) return null;
+    return this.findByPublicId(publicId, workspaceId);
   }
 
   /** Pause/resume a monitor and mirror the flag onto its assignments. */
@@ -247,7 +269,6 @@ export class MonitorRepository {
     );
     await this.db.query(
       `UPDATE monitor_assignments SET enabled = $2,
-         status = CASE WHEN $2 THEN status ELSE status END,
          next_check_at = CASE WHEN $2 THEN now() ELSE next_check_at END
        WHERE monitor_id = $1`,
       [monitorId, enabled],

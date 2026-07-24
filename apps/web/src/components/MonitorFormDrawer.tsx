@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, FolderPlus, X } from 'lucide-react';
 import { ApiError, api } from '../lib/api';
 import { cn } from '../lib/cn';
 import type { CreateMonitorInput, Monitor } from '../lib/types';
-import { Badge, Button, Drawer, Field, Input, SegmentedControl, Select } from './ui';
+import { Badge, Button, Drawer, Field, IconButton, Input, SegmentedControl, Select } from './ui';
 
 const INTERVALS = [
   { value: '30', label: '30s' },
@@ -33,10 +33,18 @@ export function MonitorFormDrawer({
   const [timeoutMs, setTimeoutMs] = useState('10000');
   const [failureThreshold, setFailureThreshold] = useState('3');
   const [regionIds, setRegionIds] = useState<number[]>([]);
+  const [groupId, setGroupId] = useState<string | null>(null);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [newGroup, setNewGroup] = useState('');
   const [advanced, setAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const regionsQuery = useQuery({ queryKey: ['regions'], queryFn: api.listRegions, enabled: open });
+  const groupsQuery = useQuery({
+    queryKey: ['groups', workspaceId],
+    queryFn: () => api.listGroups(workspaceId),
+    enabled: open,
+  });
 
   // Sync form with the monitor being edited (or reset for create) when opened.
   useEffect(() => {
@@ -48,8 +56,21 @@ export function MonitorFormDrawer({
     setTimeoutMs(String(monitor?.timeoutMs ?? 10000));
     setFailureThreshold(String(monitor?.failureThreshold ?? 3));
     setRegionIds(monitor?.regionIds ?? []);
+    setGroupId(monitor?.groupId ?? null);
+    setCreatingGroup(false);
+    setNewGroup('');
     setAdvanced(false);
   }, [open, monitor]);
+
+  const createGroup = useMutation({
+    mutationFn: () => api.createGroup(workspaceId, newGroup.trim()),
+    onSuccess: async (group) => {
+      await queryClient.invalidateQueries({ queryKey: ['groups', workspaceId] });
+      setGroupId(group.id);
+      setCreatingGroup(false);
+      setNewGroup('');
+    },
+  });
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -60,6 +81,7 @@ export function MonitorFormDrawer({
         intervalSeconds: Number(interval),
         timeoutMs: Number(timeoutMs),
         failureThreshold: Number(failureThreshold),
+        groupId,
         ...(regionIds.length ? { regionIds } : {}),
       };
       return monitor
@@ -123,6 +145,61 @@ export function MonitorFormDrawer({
 
         <Field label="Check every">
           <SegmentedControl options={INTERVALS} value={interval} onChange={setInterval} />
+        </Field>
+
+        <Field label="Group" hint="Organise related monitors into folders.">
+          {creatingGroup ? (
+            <div className="flex items-center gap-2">
+              <Input
+                autoFocus
+                value={newGroup}
+                onChange={(e) => setNewGroup(e.target.value)}
+                placeholder="Group name"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newGroup.trim()) createGroup.mutate();
+                }}
+              />
+              <IconButton
+                label="Create group"
+                variant="secondary"
+                onClick={() => newGroup.trim() && createGroup.mutate()}
+              >
+                <Check size={16} />
+              </IconButton>
+              <IconButton
+                label="Cancel"
+                onClick={() => {
+                  setCreatingGroup(false);
+                  setNewGroup('');
+                }}
+              >
+                <X size={16} />
+              </IconButton>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Select
+                value={groupId ?? ''}
+                onChange={(e) => setGroupId(e.target.value || null)}
+                className="flex-1"
+              >
+                <option value="">No group</option>
+                {groupsQuery.data?.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                type="button"
+                variant="secondary"
+                leadingIcon={<FolderPlus size={15} />}
+                onClick={() => setCreatingGroup(true)}
+              >
+                New
+              </Button>
+            </div>
+          )}
         </Field>
 
         <div className="rounded-xl border border-border">

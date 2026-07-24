@@ -6,6 +6,7 @@ import type {
   CreateMonitorInput,
   Incident,
   Monitor,
+  MonitorGroup,
   MonitorStatsResponse,
   Overview,
   Paginated,
@@ -179,6 +180,24 @@ export const api = {
 
   listRegions(): Promise<Region[]> {
     return request('/regions');
+  },
+
+  // --- Groups ----------------------------------------------------------------
+
+  listGroups(workspaceId: string): Promise<MonitorGroup[]> {
+    return request(`/workspaces/${workspaceId}/groups`);
+  },
+
+  createGroup(workspaceId: string, name: string): Promise<MonitorGroup> {
+    return request(`/workspaces/${workspaceId}/groups`, { method: 'POST', body: { name } });
+  },
+
+  renameGroup(workspaceId: string, id: string, name: string): Promise<MonitorGroup> {
+    return request(`/workspaces/${workspaceId}/groups/${id}`, { method: 'PATCH', body: { name } });
+  },
+
+  deleteGroup(workspaceId: string, id: string): Promise<void> {
+    return request(`/workspaces/${workspaceId}/groups/${id}`, { method: 'DELETE' });
   },
 
   overview(workspaceId: string): Promise<Overview> {

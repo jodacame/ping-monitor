@@ -58,6 +58,19 @@ export interface MonitorRecord {
   readonly lastCheckedAt: Date | null;
   readonly lastStatusChangedAt: Date | null;
   readonly lastResponseMs: number | null;
+  /** Public id of the group this monitor belongs to, or null. */
+  readonly groupId: string | null;
+  readonly groupName: string | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}
+
+export interface MonitorGroupRecord {
+  readonly id: string;
+  readonly publicId: string;
+  readonly workspaceId: string;
+  readonly name: string;
+  readonly sortOrder: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }

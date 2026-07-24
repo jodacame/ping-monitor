@@ -3,6 +3,7 @@ import type { AppContext } from '../context.js';
 import { createAuthGuards } from '../plugins/auth-guards.js';
 import { registerAuthRoutes } from './auth-routes.js';
 import { registerChannelRoutes } from './channel-routes.js';
+import { registerGroupRoutes } from './group-routes.js';
 import { registerMiscRoutes } from './misc-routes.js';
 import { registerMonitorRoutes } from './monitor-routes.js';
 
@@ -13,4 +14,5 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   registerAuthRoutes(app, ctx, guards);
   registerMonitorRoutes(app, ctx, guards);
   registerChannelRoutes(app, ctx, guards);
+  registerGroupRoutes(app, ctx, guards);
 }

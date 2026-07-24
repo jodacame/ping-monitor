@@ -38,6 +38,7 @@ export const createMonitorSchema = z.object({
   recoveryThreshold: threshold.default(1),
   quorum: z.number().int().min(1).max(50).default(1),
   regionIds: z.array(z.number().int().positive()).max(50).default([]),
+  groupId: z.string().nullish(),
 });
 
 export const updateMonitorSchema = z
@@ -51,6 +52,22 @@ export const updateMonitorSchema = z
     recoveryThreshold: threshold,
     quorum: z.number().int().min(1).max(50),
     regionIds: z.array(z.number().int().positive()).max(50),
+    groupId: z.string().nullable(),
+  })
+  .partial()
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'No fields to update' });
+
+// --- Monitor groups ----------------------------------------------------------
+
+export const createGroupSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  sortOrder: z.number().int().optional(),
+});
+
+export const updateGroupSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80),
+    sortOrder: z.number().int(),
   })
   .partial()
   .refine((obj) => Object.keys(obj).length > 0, { message: 'No fields to update' });
