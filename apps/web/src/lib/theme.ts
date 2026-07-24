@@ -7,7 +7,7 @@ function currentTheme(): Theme {
 }
 
 /** Theme state synced to the `<html>.dark` class and localStorage. */
-export function useTheme(): { theme: Theme; toggle: () => void } {
+export function useTheme(): { theme: Theme; setTheme: (t: Theme) => void; toggle: () => void } {
   const [theme, setTheme] = useState<Theme>(currentTheme);
 
   useEffect(() => {
@@ -20,5 +20,5 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
   }, [theme]);
 
   const toggle = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), []);
-  return { theme, toggle };
+  return { theme, setTheme, toggle };
 }

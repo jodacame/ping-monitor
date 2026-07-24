@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, FolderPlus, Plus, Search } from 'lucide-react';
 import { api } from '../lib/api';
@@ -8,20 +9,16 @@ import { AppShell } from '../components/AppShell';
 import { DashboardAside } from '../components/DashboardAside';
 import { MonitorList } from '../components/MonitorList';
 import { MonitorGroups } from '../components/MonitorGroups';
-import { MonitorDetailDrawer } from '../components/MonitorDetailDrawer';
-import { MonitorFormDrawer } from '../components/MonitorFormDrawer';
 import {
   Badge,
   Button,
   ConfirmDialog,
-  Drawer,
   EmptyState,
   IconButton,
   Input,
   SegmentedControl,
   Skeleton,
 } from '../components/ui';
-import { prettyTarget } from '../lib/format';
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'All' },
@@ -32,14 +29,12 @@ const STATUS_FILTERS = [
 
 export function DashboardPage() {
   const { currentWorkspace } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const workspaceId = currentWorkspace?.id ?? '';
 
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string>('all');
-  const [selected, setSelected] = useState<Monitor | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Monitor | null>(null);
   const [groupToDelete, setGroupToDelete] = useState<MonitorGroup | null>(null);
 
   const overview = useQuery({
@@ -48,14 +43,12 @@ export function DashboardPage() {
     enabled: Boolean(workspaceId),
     refetchInterval: 15_000,
   });
-
   const insights = useQuery({
     queryKey: ['insights', workspaceId],
     queryFn: () => api.insights(workspaceId),
     enabled: Boolean(workspaceId),
     refetchInterval: 15_000,
   });
-
   const monitors = useQuery({
     queryKey: ['monitors', workspaceId, { search, status }],
     queryFn: () =>
@@ -67,7 +60,6 @@ export function DashboardPage() {
     enabled: Boolean(workspaceId),
     refetchInterval: 15_000,
   });
-
   const groups = useQuery({
     queryKey: ['groups', workspaceId],
     queryFn: () => api.listGroups(workspaceId),
@@ -107,21 +99,9 @@ export function DashboardPage() {
 
   const items = monitors.data?.items ?? [];
   const groupList = groups.data ?? [];
-
-  const openNew = (): void => {
-    setEditing(null);
-    setFormOpen(true);
+  const openMonitor = (m: Monitor): void => {
+    navigate(`/monitors/${m.id}`);
   };
-  const openEdit = (m: Monitor): void => {
-    setSelected(null);
-    setEditing(m);
-    setFormOpen(true);
-  };
-
-  const selectedLive = useMemo(
-    () => (selected ? (items.find((m) => m.id === selected.id) ?? selected) : null),
-    [selected, items],
-  );
 
   return (
     <AppShell
@@ -132,14 +112,17 @@ export function DashboardPage() {
         </div>
       }
       actions={
-        <Button leadingIcon={<Plus size={16} />} onClick={openNew} className="hidden sm:inline-flex">
+        <Button
+          leadingIcon={<Plus size={16} />}
+          onClick={() => navigate('/monitors/new')}
+          className="hidden sm:inline-flex"
+        >
           New monitor
         </Button>
       }
     >
       <div className="mx-auto max-w-7xl p-4 sm:p-6">
         <div className="flex flex-col gap-6 lg:flex-row">
-          {/* Main column */}
           <main className="order-2 min-w-0 flex-1 space-y-4 lg:order-1">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative w-full sm:max-w-xs">
@@ -177,7 +160,7 @@ export function DashboardPage() {
                 <MonitorGroups
                   groups={groupList}
                   monitors={items}
-                  onSelect={setSelected}
+                  onSelect={openMonitor}
                   onTogglePause={(m) => togglePause.mutate(m)}
                   onRenameGroup={(id, name) => renameGroup.mutate({ id, name })}
                   onDeleteGroup={setGroupToDelete}
@@ -185,7 +168,7 @@ export function DashboardPage() {
               ) : (
                 <MonitorList
                   monitors={items}
-                  onSelect={setSelected}
+                  onSelect={openMonitor}
                   onTogglePause={(m) => togglePause.mutate(m)}
                 />
               )
@@ -202,7 +185,7 @@ export function DashboardPage() {
                 }
                 action={
                   !search && status === 'all' ? (
-                    <Button leadingIcon={<Plus size={16} />} onClick={openNew}>
+                    <Button leadingIcon={<Plus size={16} />} onClick={() => navigate('/monitors/new')}>
                       New monitor
                     </Button>
                   ) : undefined
@@ -211,14 +194,13 @@ export function DashboardPage() {
             )}
           </main>
 
-          {/* Right summary column */}
           <aside className="order-1 shrink-0 lg:order-2 lg:w-80">
             <div className="lg:sticky lg:top-20">
               <DashboardAside
                 overview={overview.data}
                 insights={insights.data}
                 monitors={items}
-                onSelect={setSelected}
+                onSelect={openMonitor}
                 loading={overview.isLoading || insights.isLoading}
               />
             </div>
@@ -226,37 +208,13 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Floating action button on mobile */}
       <button
-        onClick={openNew}
+        onClick={() => navigate('/monitors/new')}
         aria-label="New monitor"
         className="fixed bottom-6 right-6 z-20 grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-fg shadow-xl shadow-primary/30 transition-transform hover:scale-105 active:scale-95 sm:hidden"
       >
         <Plus size={24} />
       </button>
-
-      <Drawer
-        open={Boolean(selectedLive)}
-        onClose={() => setSelected(null)}
-        title={selectedLive?.name}
-        subtitle={selectedLive ? prettyTarget(selectedLive.target) : undefined}
-      >
-        {selectedLive && (
-          <MonitorDetailDrawer
-            monitor={selectedLive}
-            workspaceId={workspaceId}
-            onEdit={openEdit}
-            onClose={() => setSelected(null)}
-          />
-        )}
-      </Drawer>
-
-      <MonitorFormDrawer
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        workspaceId={workspaceId}
-        monitor={editing}
-      />
 
       <ConfirmDialog
         open={Boolean(groupToDelete)}

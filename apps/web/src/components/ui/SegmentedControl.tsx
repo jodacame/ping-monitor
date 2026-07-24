@@ -1,5 +1,3 @@
-import { useId } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '../../lib/cn';
 
 export interface SegmentOption<T extends string> {
@@ -7,7 +5,12 @@ export interface SegmentOption<T extends string> {
   label: string;
 }
 
-/** Segmented toggle with a spring-animated active pill (shared layout). */
+/**
+ * Segmented toggle. The active pill is a plain CSS-styled element (no shared
+ * layout animation) so it is reliable inside drawers/modals that mount and
+ * unmount — a shared-layout indicator can otherwise stall an exit animation and
+ * leave the overlay capturing clicks.
+ */
 export function SegmentedControl<T extends string>({
   options,
   value,
@@ -19,7 +22,6 @@ export function SegmentedControl<T extends string>({
   onChange: (value: T) => void;
   className?: string;
 }) {
-  const layoutId = useId();
   return (
     <div
       className={cn(
@@ -34,18 +36,12 @@ export function SegmentedControl<T extends string>({
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
-            className="relative rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-          >
-            {active && (
-              <motion.span
-                layoutId={layoutId}
-                className="absolute inset-0 rounded-md bg-surface shadow-sm"
-                transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-              />
+            className={cn(
+              'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+              active ? 'bg-surface text-fg shadow-sm' : 'text-muted hover:text-fg',
             )}
-            <span className={cn('relative z-10', active ? 'text-fg' : 'text-muted hover:text-fg')}>
-              {option.label}
-            </span>
+          >
+            {option.label}
           </button>
         );
       })}

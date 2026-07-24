@@ -9,14 +9,11 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Moon,
   Settings,
-  Sun,
   X,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useAuth } from '../lib/auth';
-import { useTheme } from '../lib/theme';
 import type { Workspace } from '../lib/types';
 import { IconButton } from './ui';
 import { Brand } from './Brand';
@@ -27,25 +24,6 @@ const NAV = [
   { icon: Globe2, label: 'Status Pages', to: '/status-pages' },
   { icon: Settings, label: 'Settings', to: '/settings' },
 ];
-
-function ThemeToggle() {
-  const { theme, toggle } = useTheme();
-  return (
-    <IconButton label="Toggle theme" onClick={toggle}>
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={theme}
-          initial={{ rotate: -90, opacity: 0 }}
-          animate={{ rotate: 0, opacity: 1 }}
-          exit={{ rotate: 90, opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
-        </motion.span>
-      </AnimatePresence>
-    </IconButton>
-  );
-}
 
 function WorkspaceSwitcher() {
   const { workspaces, currentWorkspace, selectWorkspace } = useAuth();
@@ -217,10 +195,7 @@ export function AppShell({
               title
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            {actions}
-          </div>
+          <div className="flex items-center gap-2">{actions}</div>
         </header>
 
         <main className="flex-1 overflow-y-auto">{children}</main>

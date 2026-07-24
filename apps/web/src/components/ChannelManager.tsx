@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BellRing, Mail, Plus, Send, Trash2, Webhook as WebhookIcon } from 'lucide-react';
 import { ApiError, api } from '../lib/api';
@@ -6,7 +7,6 @@ import type { Channel, ConnectorType } from '../lib/types';
 import {
   Button,
   ConfirmDialog,
-  Drawer,
   EmptyState,
   Field,
   Input,
@@ -52,7 +52,7 @@ function parseHeaders(text: string): Record<string, string> | undefined {
   return entries.length ? Object.fromEntries(entries) : undefined;
 }
 
-function ChannelForm({
+export function ChannelForm({
   workspaceId,
   onCancel,
   onCreated,
@@ -320,10 +320,11 @@ function ChannelRow({
   );
 }
 
-/** Reusable notification-channel manager: list + add (in a drawer) + test/delete. */
+/** Reusable notification-channel manager: list + test/delete. Adding a channel
+ *  navigates to the dedicated /alerts/new page. */
 export function ChannelManager({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient();
-  const [formOpen, setFormOpen] = useState(false);
+  const navigate = useNavigate();
   const [toDelete, setToDelete] = useState<Channel | null>(null);
 
   const channels = useQuery({
@@ -343,10 +344,8 @@ export function ChannelManager({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted">
-          Where we notify you when a monitor changes state.
-        </p>
-        <Button leadingIcon={<Plus size={16} />} onClick={() => setFormOpen(true)}>
+        <p className="text-sm text-muted">Where we notify you when a monitor changes state.</p>
+        <Button leadingIcon={<Plus size={16} />} onClick={() => navigate('/alerts/new')}>
           Add channel
         </Button>
       </div>
@@ -372,23 +371,12 @@ export function ChannelManager({ workspaceId }: { workspaceId: string }) {
           title="No alert channels yet"
           description="Add email, Telegram, or a webhook to get notified the moment a monitor goes down."
           action={
-            <Button leadingIcon={<Plus size={16} />} onClick={() => setFormOpen(true)}>
+            <Button leadingIcon={<Plus size={16} />} onClick={() => navigate('/alerts/new')}>
               Add channel
             </Button>
           }
         />
       )}
-
-      <Drawer open={formOpen} onClose={() => setFormOpen(false)} title="Add channel">
-        <ChannelForm
-          workspaceId={workspaceId}
-          onCancel={() => setFormOpen(false)}
-          onCreated={() => {
-            void queryClient.invalidateQueries({ queryKey: ['channels', workspaceId] });
-            setFormOpen(false);
-          }}
-        />
-      </Drawer>
 
       <ConfirmDialog
         open={Boolean(toDelete)}

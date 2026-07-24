@@ -43,7 +43,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function MonitorDetailDrawer({
+export function MonitorDetail({
   monitor,
   workspaceId,
   onEdit,
