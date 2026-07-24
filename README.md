@@ -8,7 +8,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jodacame/ping-monitor/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jodacame/ping-monitor/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-3fb950.svg"></a>
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white">
   <img alt="Node" src="https://img.shields.io/badge/Node-26-339933?logo=nodedotjs&logoColor=white">
