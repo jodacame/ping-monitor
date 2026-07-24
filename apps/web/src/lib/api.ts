@@ -1,6 +1,7 @@
 import type {
   ApiKey,
   ApiKeyWithSecret,
+  CreateApiKeyInput,
   AuthResult,
   AuthUser,
   Channel,
@@ -314,8 +315,8 @@ export const api = {
     return request(`/workspaces/${workspaceId}/api-keys`);
   },
 
-  createApiKey(workspaceId: string, name: string): Promise<ApiKeyWithSecret> {
-    return request(`/workspaces/${workspaceId}/api-keys`, { method: 'POST', body: { name } });
+  createApiKey(workspaceId: string, input: CreateApiKeyInput): Promise<ApiKeyWithSecret> {
+    return request(`/workspaces/${workspaceId}/api-keys`, { method: 'POST', body: input });
   },
 
   revokeApiKey(workspaceId: string, id: string): Promise<void> {

@@ -7,12 +7,15 @@ import { formatRelativeTime } from '../lib/format';
 import type { ApiKey } from '../lib/types';
 import { AppShell } from '../components/AppShell';
 import {
+  Badge,
   Button,
   Card,
   ConfirmDialog,
   EmptyState,
   Field,
   Input,
+  SegmentedControl,
+  Select,
   Spinner,
 } from '../components/ui';
 
@@ -51,6 +54,9 @@ export function DeveloperPage() {
   const queryClient = useQueryClient();
   const workspaceId = currentWorkspace?.id ?? '';
   const [name, setName] = useState('');
+  const [readOnly, setReadOnly] = useState(false);
+  const [expiry, setExpiry] = useState('');
+  const [ips, setIps] = useState('');
   const [freshKey, setFreshKey] = useState<string | null>(null);
   const [toRevoke, setToRevoke] = useState<ApiKey | null>(null);
 
@@ -64,10 +70,24 @@ export function DeveloperPage() {
   });
 
   const create = useMutation({
-    mutationFn: () => api.createApiKey(workspaceId, name.trim()),
+    mutationFn: () => {
+      const allowedIps = ips
+        .split(/[\s,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return api.createApiKey(workspaceId, {
+        name: name.trim(),
+        scopes: readOnly ? ['read'] : ['read', 'write'],
+        ...(expiry ? { expiresInDays: Number(expiry) } : {}),
+        ...(allowedIps.length ? { allowedIps } : {}),
+      });
+    },
     onSuccess: async (created) => {
       setFreshKey(created.key);
       setName('');
+      setReadOnly(false);
+      setExpiry('');
+      setIps('');
       await queryClient.invalidateQueries({ queryKey: ['api-keys', workspaceId] });
     },
   });
@@ -104,27 +124,51 @@ export function DeveloperPage() {
             </Card>
           )}
 
-          <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <Field label="New key name">
+          <Card className="space-y-4 p-4">
+            <Field label="New key name">
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="CI pipeline"
+              />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Access">
+                <SegmentedControl
+                  options={[
+                    { value: 'rw', label: 'Read & write' },
+                    { value: 'ro', label: 'Read only' },
+                  ]}
+                  value={readOnly ? 'ro' : 'rw'}
+                  onChange={(v) => setReadOnly(v === 'ro')}
+                />
+              </Field>
+              <Field label="Expires">
+                <Select value={expiry} onChange={(e) => setExpiry(e.target.value)}>
+                  <option value="">Never</option>
+                  <option value="30">30 days</option>
+                  <option value="90">90 days</option>
+                  <option value="365">1 year</option>
+                </Select>
+              </Field>
+              <Field label="Allowed IPs" hint="Optional. Comma-separated; CIDR ok.">
                 <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="CI pipeline"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && name.trim()) create.mutate();
-                  }}
+                  value={ips}
+                  onChange={(e) => setIps(e.target.value)}
+                  placeholder="203.0.113.4, 10.0.0.0/8"
                 />
               </Field>
             </div>
-            <Button
-              leadingIcon={<Plus size={16} />}
-              onClick={() => create.mutate()}
-              loading={create.isPending}
-              disabled={!name.trim()}
-            >
-              Create key
-            </Button>
+            <div className="flex justify-end">
+              <Button
+                leadingIcon={<Plus size={16} />}
+                onClick={() => create.mutate()}
+                loading={create.isPending}
+                disabled={!name.trim()}
+              >
+                Create key
+              </Button>
+            </div>
           </Card>
 
           {keys.isLoading ? (
@@ -143,6 +187,15 @@ export function DeveloperPage() {
                     <div className="text-xs text-muted">
                       <code>{k.prefix}</code> · last used {formatRelativeTime(k.lastUsedAt)}
                     </div>
+                  </div>
+                  <div className="hidden items-center gap-1.5 sm:flex">
+                    <Badge tone={k.scopes.includes('write') ? 'primary' : 'neutral'}>
+                      {k.scopes.includes('write') ? 'Read & write' : 'Read only'}
+                    </Badge>
+                    {k.expiresAt && (
+                      <Badge tone="warn">Expires {new Date(k.expiresAt).toLocaleDateString()}</Badge>
+                    )}
+                    {k.allowedIps && <Badge tone="neutral">IP-locked</Badge>}
                   </div>
                   <Button
                     size="sm"

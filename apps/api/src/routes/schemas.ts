@@ -24,6 +24,9 @@ export const createWorkspaceSchema = z.object({
 
 export const createApiKeySchema = z.object({
   name: z.string().trim().min(1).max(60),
+  scopes: z.array(z.enum(['read', 'write'])).min(1).optional(),
+  expiresInDays: z.number().int().positive().max(3650).optional(),
+  allowedIps: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
 });
 
 const monitorType = z.enum(['http', 'tcp', 'icmp']);

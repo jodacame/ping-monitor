@@ -30,9 +30,14 @@ export function createAuthGuards(ctx: AppContext): AuthGuards {
     if (!token) throw new UnauthorizedError('Missing bearer token');
 
     if (isApiKey(token)) {
-      const auth = await ctx.apiKeys.verify(token);
-      if (!auth) throw new UnauthorizedError('Invalid API key');
+      const auth = await ctx.apiKeys.verify(token, request.ip);
+      if (!auth) throw new UnauthorizedError('Invalid, expired, or IP-blocked API key');
       request.apiKey = auth;
+      // Read-only keys may only perform safe methods.
+      const safe = request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS';
+      if (!safe && !auth.scopes.includes('write')) {
+        throw new ForbiddenError('This API key is read-only');
+      }
       return;
     }
 

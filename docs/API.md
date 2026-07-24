@@ -68,6 +68,23 @@ On connect you receive `{ "type": "connected", "workspaceId": "…" }`. You then
 only receive events for that workspace. The stream is fan-out and efficient: one
 server-side reader broadcasts to all connected clients.
 
+## Security & restrictions
+
+- **Scopes** — a key is `read` and/or `write`. Read-only keys can only call
+  GET/HEAD; any mutating request returns `403`.
+- **Expiry** — keys can be created with an optional expiry; expired keys are
+  rejected.
+- **IP allowlist** — a key can be restricted to specific IPs or CIDR ranges;
+  requests from other addresses are rejected.
+- **Rate limiting** — requests are rate-limited per client IP (credential
+  endpoints more strictly); exceeding the limit returns `429`.
+- **Security headers** — responses set HSTS, `X-Content-Type-Options`,
+  `X-Frame-Options`, and a strict referrer policy (via helmet).
+- **WebSocket auth** — prefer sending the key as the WebSocket **subprotocol**
+  (`new WebSocket(url, ["pk_..."])`) so it never appears in URLs/logs; the
+  `?apiKey=` query param is also accepted. Connections are heartbeat-checked and
+  capped per workspace.
+
 ## Public status page
 
 Read-only, no auth: `GET /api/public/status/:slug`.

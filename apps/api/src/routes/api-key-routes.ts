@@ -19,8 +19,8 @@ export function registerApiKeyRoutes(
   });
 
   app.post(base, { preHandler }, async (request, reply) => {
-    const { name } = createApiKeySchema.parse(request.body);
-    const { record, key } = await ctx.apiKeys.create(request.workspace!.id, name);
+    const body = createApiKeySchema.parse(request.body);
+    const { record, key } = await ctx.apiKeys.create(request.workspace!.id, body);
     void reply.status(201);
     // The full key is returned exactly once.
     return { ...apiKeyToDto(record), key };

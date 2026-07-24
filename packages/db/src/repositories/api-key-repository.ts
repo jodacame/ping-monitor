@@ -7,6 +7,9 @@ export interface ApiKeyRecord {
   readonly publicId: string;
   readonly name: string;
   readonly prefix: string;
+  readonly scopes: string[];
+  readonly expiresAt: Date | null;
+  readonly allowedIps: string[] | null;
   readonly lastUsedAt: Date | null;
   readonly createdAt: Date;
 }
@@ -15,6 +18,8 @@ export interface ApiKeyAuth {
   readonly workspaceId: string;
   readonly workspacePublicId: string;
   readonly keyId: string;
+  readonly scopes: string[];
+  readonly allowedIps: string[] | null;
 }
 
 interface KeyRow {
@@ -22,6 +27,9 @@ interface KeyRow {
   public_id: string;
   name: string;
   prefix: string;
+  scopes: string[];
+  expires_at: Date | null;
+  allowed_ips: string[] | null;
   last_used_at: Date | null;
   created_at: Date;
 }
@@ -32,10 +40,16 @@ function toRecord(row: KeyRow): ApiKeyRecord {
     publicId: row.public_id,
     name: row.name,
     prefix: row.prefix,
+    scopes: row.scopes,
+    expiresAt: row.expires_at,
+    allowedIps: row.allowed_ips,
     lastUsedAt: row.last_used_at,
     createdAt: row.created_at,
   };
 }
+
+const COLUMNS =
+  'id, public_id, name, prefix, scopes, expires_at, allowed_ips, last_used_at, created_at';
 
 export interface CreateApiKeyInput {
   readonly publicId: string;
@@ -43,6 +57,9 @@ export interface CreateApiKeyInput {
   readonly name: string;
   readonly prefix: string;
   readonly keyHash: string;
+  readonly scopes: string[];
+  readonly expiresAt: Date | null;
+  readonly allowedIps: string[] | null;
 }
 
 export class ApiKeyRepository {
@@ -50,35 +67,57 @@ export class ApiKeyRepository {
 
   async create(input: CreateApiKeyInput): Promise<ApiKeyRecord> {
     const res = await this.db.query<KeyRow>(
-      `INSERT INTO api_keys (public_id, workspace_id, name, prefix, key_hash)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, public_id, name, prefix, last_used_at, created_at`,
-      [input.publicId, input.workspaceId, input.name, input.prefix, input.keyHash],
+      `INSERT INTO api_keys
+         (public_id, workspace_id, name, prefix, key_hash, scopes, expires_at, allowed_ips)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING ${COLUMNS}`,
+      [
+        input.publicId,
+        input.workspaceId,
+        input.name,
+        input.prefix,
+        input.keyHash,
+        input.scopes,
+        input.expiresAt,
+        input.allowedIps,
+      ],
     );
     return toRecord(res.rows[0]!);
   }
 
   async list(workspaceId: string): Promise<ApiKeyRecord[]> {
     const res = await this.db.query<KeyRow>(
-      `SELECT id, public_id, name, prefix, last_used_at, created_at
-       FROM api_keys WHERE workspace_id = $1 AND revoked_at IS NULL
+      `SELECT ${COLUMNS} FROM api_keys WHERE workspace_id = $1 AND revoked_at IS NULL
        ORDER BY created_at DESC`,
       [workspaceId],
     );
     return res.rows.map(toRecord);
   }
 
-  /** Resolve an active key by its hash to the workspace it grants access to. */
+  /** Resolve an active (not revoked, not expired) key by its hash. */
   async findActiveByHash(keyHash: string): Promise<ApiKeyAuth | null> {
-    const res = await this.db.query<{ id: string; workspace_id: string; workspace_public_id: string }>(
-      `SELECT k.id, k.workspace_id, w.public_id AS workspace_public_id
+    const res = await this.db.query<{
+      id: string;
+      workspace_id: string;
+      workspace_public_id: string;
+      scopes: string[];
+      allowed_ips: string[] | null;
+    }>(
+      `SELECT k.id, k.workspace_id, w.public_id AS workspace_public_id, k.scopes, k.allowed_ips
        FROM api_keys k JOIN workspaces w ON w.id = k.workspace_id
-       WHERE k.key_hash = $1 AND k.revoked_at IS NULL`,
+       WHERE k.key_hash = $1 AND k.revoked_at IS NULL
+         AND (k.expires_at IS NULL OR k.expires_at > now())`,
       [keyHash],
     );
     const row = res.rows[0];
     return row
-      ? { keyId: row.id, workspaceId: row.workspace_id, workspacePublicId: row.workspace_public_id }
+      ? {
+          keyId: row.id,
+          workspaceId: row.workspace_id,
+          workspacePublicId: row.workspace_public_id,
+          scopes: row.scopes,
+          allowedIps: row.allowed_ips,
+        }
       : null;
   }
 

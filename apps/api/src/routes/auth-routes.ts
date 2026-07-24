@@ -9,14 +9,17 @@ export function registerAuthRoutes(
   ctx: AppContext,
   guards: AuthGuards,
 ): void {
-  app.post('/auth/register', async (request, reply) => {
+  // Tighter rate limits on credential endpoints (anti brute-force).
+  const authLimit = { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } };
+
+  app.post('/auth/register', authLimit, async (request, reply) => {
     const body = registerSchema.parse(request.body);
     const result = await ctx.auth.register(body, request.headers['user-agent'] ?? null);
     void reply.status(201);
     return result;
   });
 
-  app.post('/auth/login', async (request) => {
+  app.post('/auth/login', authLimit, async (request) => {
     const body = loginSchema.parse(request.body);
     return ctx.auth.login(body, request.headers['user-agent'] ?? null);
   });

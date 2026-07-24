@@ -22,6 +22,12 @@ declare module 'fastify' {
   interface FastifyRequest {
     authUser?: AuthUser;
     workspace?: WorkspaceContext;
-    apiKey?: { workspaceId: string; workspacePublicId: string; keyId: string };
+    apiKey?: {
+      workspaceId: string;
+      workspacePublicId: string;
+      keyId: string;
+      scopes: string[];
+      allowedIps: string[] | null;
+    };
   }
 }

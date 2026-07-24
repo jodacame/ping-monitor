@@ -78,12 +78,22 @@ export interface ApiKey {
   id: string;
   name: string;
   prefix: string;
+  scopes: string[];
+  expiresAt: string | null;
+  allowedIps: string[] | null;
   lastUsedAt: string | null;
   createdAt: string;
 }
 
 export interface ApiKeyWithSecret extends ApiKey {
   key: string;
+}
+
+export interface CreateApiKeyInput {
+  name: string;
+  scopes?: string[];
+  expiresInDays?: number;
+  allowedIps?: string[];
 }
 
 export interface WorkspaceInsights {

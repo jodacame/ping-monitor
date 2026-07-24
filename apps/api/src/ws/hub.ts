@@ -8,8 +8,10 @@ import type { Logger } from '@ping/config';
 export interface WsSocket {
   send(data: string): void;
   close(): void;
+  ping(): void;
+  terminate(): void;
   readyState: number;
-  on(event: 'close' | 'error', listener: () => void): void;
+  on(event: 'close' | 'error' | 'pong', listener: () => void): void;
 }
 const OPEN = 1;
 
@@ -36,6 +38,10 @@ export class WsHub {
     if (!set) return;
     set.delete(socket);
     if (set.size === 0) this.byWorkspace.delete(workspaceId);
+  }
+
+  count(workspaceId: string): number {
+    return this.byWorkspace.get(workspaceId)?.size ?? 0;
   }
 
   broadcast(workspaceId: string, data: string): void {
