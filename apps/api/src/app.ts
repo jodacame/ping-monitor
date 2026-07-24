@@ -31,10 +31,14 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   });
 
   // Global rate limit (per client IP). Auth routes tighten this further.
+  // Backed by Redis so counters are shared across API replicas (not per-process);
+  // on a Redis error the plugin fails open rather than blocking traffic.
   await app.register(rateLimit, {
     max: 300,
     timeWindow: '1 minute',
     hook: 'onRequest',
+    redis: ctx.rateLimitRedis,
+    nameSpace: 'ping-rl:',
   });
 
   await app.register(cors, {

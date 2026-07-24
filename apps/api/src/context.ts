@@ -10,6 +10,7 @@ import {
 } from '@ping/config';
 import { Database } from '@ping/db';
 import { createRedis } from '@ping/queue';
+import type { Redis } from 'ioredis';
 import { WsHub, startEventBroadcaster } from './ws/hub.js';
 import { TokenService } from './auth/tokens.js';
 import { ApiKeyService } from './services/api-key-service.js';
@@ -43,6 +44,8 @@ export interface AppContext {
   readonly tags: TagService;
   readonly apiKeys: ApiKeyService;
   readonly wsHub: WsHub;
+  /** Shared store so rate limits hold across API replicas, not per-process. */
+  readonly rateLimitRedis: Redis;
   close(): Promise<void>;
 }
 
@@ -63,9 +66,18 @@ export function buildContext(): AppContext {
   );
 
   // Real-time event fan-out to WebSocket clients.
-  const wsRedis = createRedis(loadRedisConfig());
+  const redisConfig = loadRedisConfig();
+  const wsRedis = createRedis(redisConfig);
   const wsHub = new WsHub();
   const stopBroadcaster = startEventBroadcaster(wsRedis, wsHub, 'events:monitor', logger);
+
+  // Dedicated connection for the rate limiter. Fail fast (short timeout, single
+  // retry) so a Redis hiccup degrades to the plugin's skip-on-error path rather
+  // than stalling requests behind an infinite retry.
+  const rateLimitRedis = createRedis(redisConfig, {
+    connectTimeout: 500,
+    maxRetriesPerRequest: 1,
+  });
 
   return {
     apiConfig,
@@ -83,9 +95,11 @@ export function buildContext(): AppContext {
     tags: new TagService(db),
     apiKeys: new ApiKeyService(db),
     wsHub,
+    rateLimitRedis,
     async close(): Promise<void> {
       stopBroadcaster();
       wsRedis.disconnect();
+      rateLimitRedis.disconnect();
       await db.close();
     },
   };
