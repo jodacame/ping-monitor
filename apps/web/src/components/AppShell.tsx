@@ -9,13 +9,15 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Plus,
   Settings,
   X,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useAuth } from '../lib/auth';
 import type { Workspace } from '../lib/types';
-import { IconButton } from './ui';
+import { api } from '../lib/api';
+import { Button, Field, IconButton, Input, Modal } from './ui';
 import { Brand } from './Brand';
 
 const NAV = [
@@ -26,9 +28,26 @@ const NAV = [
 ];
 
 function WorkspaceSwitcher() {
-  const { workspaces, currentWorkspace, selectWorkspace } = useAuth();
+  const { workspaces, currentWorkspace, selectWorkspace, reload } = useAuth();
   const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
   if (!currentWorkspace) return null;
+
+  const create = async (): Promise<void> => {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      const ws = await api.createWorkspace(name.trim());
+      await reload();
+      selectWorkspace(ws.id);
+      setCreating(false);
+      setName('');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="relative">
@@ -70,10 +89,44 @@ function WorkspaceSwitcher() {
                   {w.id === currentWorkspace.id && <Check size={15} className="text-primary" />}
                 </button>
               ))}
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  setCreating(true);
+                }}
+                className="mt-1 flex w-full items-center gap-2 border-t border-border px-2.5 py-2 text-left text-sm font-medium text-primary hover:bg-elevated"
+              >
+                <Plus size={15} /> New workspace
+              </button>
             </motion.div>
           </>
         )}
       </AnimatePresence>
+
+      <Modal open={creating} onClose={() => setCreating(false)}>
+        <h3 className="text-lg font-semibold text-fg">New workspace</h3>
+        <div className="mt-4">
+          <Field label="Name">
+            <Input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Acme Inc."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void create();
+              }}
+            />
+          </Field>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setCreating(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => void create()} loading={saving} disabled={!name.trim()}>
+            Create workspace
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

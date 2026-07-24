@@ -18,6 +18,10 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+export const createWorkspaceSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+});
+
 const monitorType = z.enum(['http', 'tcp', 'icmp']);
 const interval = z
   .number()

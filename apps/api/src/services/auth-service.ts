@@ -116,6 +116,22 @@ export class AuthService {
     );
   }
 
+  /** Create a new workspace owned by the given user. */
+  async createWorkspace(userId: string, name: string): Promise<WorkspaceSummary> {
+    const trimmed = name.trim() || 'New Workspace';
+    const workspace = await this.db.transaction(async (tx) => {
+      const workspaces = new WorkspaceRepository(tx);
+      const created = await workspaces.create({
+        publicId: newId(),
+        name: trimmed,
+        slug: `${slugify(trimmed) || 'workspace'}-${randomSlugSuffix()}`,
+      });
+      await workspaces.addMember(created.id, userId, WorkspaceRole.Owner);
+      return created;
+    });
+    return { id: workspace.publicId, name: workspace.name, slug: workspace.slug, role: WorkspaceRole.Owner };
+  }
+
   async me(userId: string): Promise<{ user: PublicUser; workspaces: WorkspaceSummary[] }> {
     const user = await new UserRepository(this.db).findById(userId);
     if (!user) throw new UnauthorizedError('Account no longer exists');

@@ -183,6 +183,10 @@ export const api = {
     return request('/workspaces');
   },
 
+  createWorkspace(name: string): Promise<Workspace> {
+    return request('/workspaces', { method: 'POST', body: { name } });
+  },
+
   listRegions(): Promise<Region[]> {
     return request('/regions');
   },

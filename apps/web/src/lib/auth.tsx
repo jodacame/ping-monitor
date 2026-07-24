@@ -15,6 +15,7 @@ interface AuthContextValue {
   workspaces: Workspace[];
   currentWorkspace: Workspace | null;
   ready: boolean;
+  reload: () => Promise<void>;
   selectWorkspace: (id: string) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (input: { email: string; password: string; name?: string }) => Promise<void>;
@@ -90,12 +91,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       workspaces,
       currentWorkspace: workspaces.find((w) => w.id === currentId) ?? null,
       ready,
+      reload: load,
       selectWorkspace: setCurrentId,
       login,
       register,
       logout,
     }),
-    [user, workspaces, currentId, ready, login, register, logout],
+    [user, workspaces, currentId, ready, load, login, register, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
