@@ -97,6 +97,8 @@ The stack is TypeScript end to end and runs on Node 26 with **pnpm**.
 ```bash
 pnpm install
 pnpm --filter @ping/db run migrate    # apply schema
+pnpm seed                             # optional: example monitors (HTTP/TCP/ICMP,
+                                      #           simple + complex health checks)
 pnpm dev:api                          # API      (:3000)
 pnpm dev:scheduler                    # scheduler
 pnpm dev:worker                       # worker
