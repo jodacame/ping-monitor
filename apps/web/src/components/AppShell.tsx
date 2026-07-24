@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BellRing,
@@ -17,15 +18,14 @@ import { cn } from '../lib/cn';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import type { Workspace } from '../lib/types';
-import { Badge, IconButton } from './ui';
+import { IconButton } from './ui';
 import { Brand } from './Brand';
-import { AlertsDrawer } from './AlertsDrawer';
 
 const NAV = [
-  { icon: LayoutDashboard, label: 'Dashboard', active: true },
-  { icon: BellRing, label: 'Alerts' },
-  { icon: Globe2, label: 'Status Pages', soon: true },
-  { icon: Settings, label: 'Settings', soon: true },
+  { icon: LayoutDashboard, label: 'Dashboard', to: '/' },
+  { icon: BellRing, label: 'Alerts', to: '/alerts' },
+  { icon: Globe2, label: 'Status Pages', to: '/status-pages' },
+  { icon: Settings, label: 'Settings', to: '/settings' },
 ];
 
 function ThemeToggle() {
@@ -120,13 +120,12 @@ function UserFooter() {
   );
 }
 
-function SidebarContent({
-  onNavigate,
-  onNav,
-}: {
-  onNavigate?: () => void;
-  onNav: (label: string) => void;
-}) {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  const isActive = (to: string): boolean => (to === '/' ? pathname === '/' : pathname.startsWith(to));
+
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 py-5">
@@ -137,22 +136,18 @@ function SidebarContent({
           <button
             key={item.label}
             onClick={() => {
-              if (item.soon) return;
-              onNav(item.label);
+              navigate(item.to);
               onNavigate?.();
             }}
-            disabled={item.soon}
             className={cn(
               'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-              item.active
+              isActive(item.to)
                 ? 'bg-primary/10 text-primary'
                 : 'text-muted hover:bg-elevated hover:text-fg',
-              item.soon && 'cursor-not-allowed opacity-60 hover:bg-transparent',
             )}
           >
             <item.icon size={18} />
             <span className="flex-1 text-left">{item.label}</span>
-            {item.soon && <Badge tone="neutral">Soon</Badge>}
           </button>
         ))}
       </nav>
@@ -175,21 +170,13 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [alertsOpen, setAlertsOpen] = useState(false);
-  const { currentWorkspace } = useAuth();
-
-  const handleNav = (label: string): void => {
-    if (label === 'Alerts') setAlertsOpen(true);
-  };
 
   return (
     <div className="flex h-full">
-      {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 border-r border-border bg-surface lg:block">
-        <SidebarContent onNav={handleNav} />
+        <SidebarContent />
       </aside>
 
-      {/* Mobile sidebar */}
       <AnimatePresence>
         {mobileOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
@@ -212,7 +199,7 @@ export function AppShell({
                   <X size={18} />
                 </IconButton>
               </div>
-              <SidebarContent onNavigate={() => setMobileOpen(false)} onNav={handleNav} />
+              <SidebarContent onNavigate={() => setMobileOpen(false)} />
             </motion.aside>
           </div>
         )}
@@ -220,11 +207,7 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-bg/80 px-4 backdrop-blur sm:px-6">
-          <IconButton
-            label="Open menu"
-            className="lg:hidden"
-            onClick={() => setMobileOpen(true)}
-          >
+          <IconButton label="Open menu" className="lg:hidden" onClick={() => setMobileOpen(true)}>
             <Menu size={20} />
           </IconButton>
           <div className="min-w-0 flex-1">
@@ -242,12 +225,6 @@ export function AppShell({
 
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
-
-      <AlertsDrawer
-        open={alertsOpen}
-        onClose={() => setAlertsOpen(false)}
-        workspaceId={currentWorkspace?.id ?? ''}
-      />
     </div>
   );
 }

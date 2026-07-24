@@ -21,6 +21,21 @@ const authSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('basic'), username: z.string().min(1), password: z.string().min(1) }),
 ]);
 
+/**
+ * Validate that a body template is well-formed JSON. Placeholders are replaced
+ * with a neutral literal first, so `{{var}}` used either as a bare value or
+ * inside a string still yields parseable JSON — only real structural mistakes
+ * (missing quotes, braces, commas) fail.
+ */
+export function isValidJsonTemplate(template: string): boolean {
+  try {
+    JSON.parse(template.replace(/\{\{[^}]*\}\}/g, '0'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const webhookConfigSchema = z
   .object({
     url: z.string().url(),
@@ -31,7 +46,21 @@ export const webhookConfigSchema = z
     /** Optional body template using `{{name}}` placeholders. */
     bodyTemplate: z.string().optional(),
   })
-  .strip();
+  .strip()
+  .superRefine((cfg, ctx) => {
+    // When sending JSON, the template must be valid JSON once rendered.
+    if (
+      cfg.bodyTemplate &&
+      cfg.contentType.toLowerCase().includes('json') &&
+      !isValidJsonTemplate(cfg.bodyTemplate)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['bodyTemplate'],
+        message: 'Body template must be valid JSON',
+      });
+    }
+  });
 
 export type WebhookConfig = z.infer<typeof webhookConfigSchema>;
 

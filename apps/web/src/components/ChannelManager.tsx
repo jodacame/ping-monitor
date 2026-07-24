@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, BellRing, Mail, Plus, Send, Trash2, Webhook as WebhookIcon } from 'lucide-react';
+import { BellRing, Mail, Plus, Send, Trash2, Webhook as WebhookIcon } from 'lucide-react';
 import { ApiError, api } from '../lib/api';
 import type { Channel, ConnectorType } from '../lib/types';
 import {
@@ -29,6 +29,16 @@ const TYPE_OPTIONS = [
   { value: 'webhook' as const, label: 'Webhook' },
 ];
 
+/** Validate a webhook body template is well-formed JSON (placeholders aside). */
+function isValidJsonTemplate(template: string): boolean {
+  try {
+    JSON.parse(template.replace(/\{\{[^}]*\}\}/g, '0'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function parseHeaders(text: string): Record<string, string> | undefined {
   const entries = text
     .split('\n')
@@ -41,8 +51,6 @@ function parseHeaders(text: string): Record<string, string> | undefined {
     .filter((e): e is [string, string] => e !== null);
   return entries.length ? Object.fromEntries(entries) : undefined;
 }
-
-// --- Create form -------------------------------------------------------------
 
 function ChannelForm({
   workspaceId,
@@ -59,6 +67,13 @@ function ChannelForm({
   const [secure, setSecure] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (key: string, value: string): void => setF((p) => ({ ...p, [key]: value }));
+
+  const jsonContentType = !f.contentType || f.contentType.toLowerCase().includes('json');
+  const templateInvalid =
+    type === 'webhook' &&
+    Boolean(f.bodyTemplate?.trim()) &&
+    jsonContentType &&
+    !isValidJsonTemplate(f.bodyTemplate ?? '');
 
   const buildConfig = (): Record<string, unknown> => {
     if (type === 'smtp') {
@@ -204,6 +219,7 @@ function ChannelForm({
           <Field
             label="Body template"
             hint="Optional. Use {{title}}, {{message}}, {{status}}, {{monitorName}}, {{responseMs}}…"
+            error={templateInvalid ? 'Body template must be valid JSON.' : undefined}
           >
             <Textarea
               rows={3}
@@ -220,15 +236,17 @@ function ChannelForm({
         <Button variant="secondary" onClick={onCancel}>
           Cancel
         </Button>
-        <Button onClick={() => create.mutate()} loading={create.isPending} disabled={!name.trim()}>
+        <Button
+          onClick={() => create.mutate()}
+          loading={create.isPending}
+          disabled={!name.trim() || templateInvalid}
+        >
           Add channel
         </Button>
       </div>
     </div>
   );
 }
-
-// --- List --------------------------------------------------------------------
 
 function ChannelRow({
   channel,
@@ -253,13 +271,8 @@ function ChannelRow({
     setTestState('testing');
     try {
       const res = await api.testChannel(workspaceId, channel.id);
-      if (res.ok) {
-        setTestState('ok');
-        setTestMsg('Test sent');
-      } else {
-        setTestState('error');
-        setTestMsg(res.error ?? 'Failed');
-      }
+      setTestState(res.ok ? 'ok' : 'error');
+      setTestMsg(res.ok ? 'Test sent' : (res.error ?? 'Failed'));
     } catch {
       setTestState('error');
       setTestMsg('Failed');
@@ -283,7 +296,7 @@ function ChannelRow({
             testState === 'ok'
               ? 'text-xs text-up'
               : testState === 'error'
-                ? 'max-w-32 truncate text-xs text-down'
+                ? 'max-w-40 truncate text-xs text-down'
                 : 'text-muted'
           }
           title={testMsg}
@@ -300,31 +313,23 @@ function ChannelRow({
         onChange={(v) => toggle.mutate(v)}
         label={channel.enabled ? 'Disable channel' : 'Enable channel'}
       />
-      <Button size="sm" variant="ghost" onClick={onDelete} leadingIcon={<Trash2 size={15} />} aria-label="Delete channel">
-        <span className="sr-only">Delete</span>
+      <Button size="sm" variant="ghost" onClick={onDelete} aria-label="Delete channel">
+        <Trash2 size={15} />
       </Button>
     </div>
   );
 }
 
-/** Manage notification channels (email, Telegram, webhook) for a workspace. */
-export function AlertsDrawer({
-  open,
-  onClose,
-  workspaceId,
-}: {
-  open: boolean;
-  onClose: () => void;
-  workspaceId: string;
-}) {
-  const [view, setView] = useState<'list' | 'form'>('list');
-  const [toDelete, setToDelete] = useState<Channel | null>(null);
+/** Reusable notification-channel manager: list + add (in a drawer) + test/delete. */
+export function ChannelManager({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient();
+  const [formOpen, setFormOpen] = useState(false);
+  const [toDelete, setToDelete] = useState<Channel | null>(null);
 
   const channels = useQuery({
     queryKey: ['channels', workspaceId],
     queryFn: () => api.listChannels(workspaceId),
-    enabled: open && Boolean(workspaceId),
+    enabled: Boolean(workspaceId),
   });
 
   const remove = useMutation({
@@ -335,68 +340,54 @@ export function AlertsDrawer({
     },
   });
 
-  const close = (): void => {
-    setView('list');
-    onClose();
-  };
-
   return (
-    <>
-      <Drawer
-        open={open}
-        onClose={close}
-        title={
-          view === 'form' ? (
-            <button
-              onClick={() => setView('list')}
-              className="flex items-center gap-2 text-lg font-semibold text-fg"
-            >
-              <ArrowLeft size={18} /> Add channel
-            </button>
-          ) : (
-            'Alerts'
-          )
-        }
-        subtitle={view === 'list' ? 'Where we send notifications when a monitor changes state.' : undefined}
-        footer={
-          view === 'list' ? (
-            <Button fullWidth leadingIcon={<Plus size={16} />} onClick={() => setView('form')}>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted">
+          Where we notify you when a monitor changes state.
+        </p>
+        <Button leadingIcon={<Plus size={16} />} onClick={() => setFormOpen(true)}>
+          Add channel
+        </Button>
+      </div>
+
+      {channels.isLoading ? (
+        <div className="grid place-items-center py-16 text-muted">
+          <Spinner size={22} />
+        </div>
+      ) : channels.data && channels.data.length > 0 ? (
+        <div className="space-y-2">
+          {channels.data.map((c) => (
+            <ChannelRow
+              key={c.id}
+              channel={c}
+              workspaceId={workspaceId}
+              onDelete={() => setToDelete(c)}
+            />
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          icon={<BellRing size={22} />}
+          title="No alert channels yet"
+          description="Add email, Telegram, or a webhook to get notified the moment a monitor goes down."
+          action={
+            <Button leadingIcon={<Plus size={16} />} onClick={() => setFormOpen(true)}>
               Add channel
             </Button>
-          ) : undefined
-        }
-      >
-        {view === 'form' ? (
-          <ChannelForm
-            workspaceId={workspaceId}
-            onCancel={() => setView('list')}
-            onCreated={() => {
-              void queryClient.invalidateQueries({ queryKey: ['channels', workspaceId] });
-              setView('list');
-            }}
-          />
-        ) : channels.isLoading ? (
-          <div className="grid place-items-center py-16 text-muted">
-            <Spinner size={22} />
-          </div>
-        ) : channels.data && channels.data.length > 0 ? (
-          <div className="space-y-2">
-            {channels.data.map((c) => (
-              <ChannelRow
-                key={c.id}
-                channel={c}
-                workspaceId={workspaceId}
-                onDelete={() => setToDelete(c)}
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            icon={<BellRing size={22} />}
-            title="No alert channels yet"
-            description="Add email, Telegram, or a webhook to get notified the moment a monitor goes down."
-          />
-        )}
+          }
+        />
+      )}
+
+      <Drawer open={formOpen} onClose={() => setFormOpen(false)} title="Add channel">
+        <ChannelForm
+          workspaceId={workspaceId}
+          onCancel={() => setFormOpen(false)}
+          onCreated={() => {
+            void queryClient.invalidateQueries({ queryKey: ['channels', workspaceId] });
+            setFormOpen(false);
+          }}
+        />
       </Drawer>
 
       <ConfirmDialog
@@ -413,6 +404,6 @@ export function AlertsDrawer({
         danger
         loading={remove.isPending}
       />
-    </>
+    </div>
   );
 }
