@@ -118,4 +118,34 @@ export function registerMonitorRoutes(
     const monitor = await ctx.monitors.get(request.workspace!.id, monitorId);
     return ctx.stats.incidents(monitor.id, limit);
   });
+
+  // CSV export of check history.
+  app.get(`${base}/monitors/:monitorId/export.csv`, { preHandler }, async (request, reply) => {
+    const { monitorId } = request.params as MonitorParams;
+    const monitor = await ctx.monitors.get(request.workspace!.id, monitorId);
+    const checks = await ctx.stats.recentChecks(monitor.id, 5000);
+
+    const escape = (v: string): string => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const lines = ['checked_at,region,status,response_ms,status_code,error'];
+    for (const c of checks) {
+      lines.push(
+        [
+          c.checkedAt.toISOString(),
+          String(c.regionId),
+          c.up ? 'up' : 'down',
+          c.responseMs === null ? '' : String(c.responseMs),
+          c.statusCode === null ? '' : String(c.statusCode),
+          c.errorKind ?? '',
+        ]
+          .map(escape)
+          .join(','),
+      );
+    }
+
+    const filename = `${monitor.name.replace(/[^a-z0-9]+/gi, '_')}_checks.csv`;
+    void reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', `attachment; filename="${filename}"`);
+    return lines.join('\n');
+  });
 }

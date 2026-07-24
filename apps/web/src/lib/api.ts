@@ -286,4 +286,21 @@ export const api = {
   monitorIncidents(workspaceId: string, id: string, limit = 20): Promise<Incident[]> {
     return request(`/workspaces/${workspaceId}/monitors/${id}/incidents?limit=${limit}`);
   },
+
+  /** Fetch the check-history CSV (auth) and trigger a browser download. */
+  async downloadChecksCsv(workspaceId: string, id: string, filename: string): Promise<void> {
+    const res = await fetch(`${BASE}/workspaces/${workspaceId}/monitors/${id}/export.csv`, {
+      headers: { authorization: `Bearer ${readTokens()?.accessToken ?? ''}` },
+    });
+    if (!res.ok) throw new ApiError('Export failed', res.status);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Pencil, Pause, Play, Trash2 } from 'lucide-react';
+import { AlertTriangle, Download, Pencil, Pause, Play, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import {
@@ -118,6 +118,16 @@ export function MonitorDetail({
               onClick={() => onEdit(monitor)}
             >
               Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              leadingIcon={<Download size={15} />}
+              onClick={() =>
+                void api.downloadChecksCsv(workspaceId, id, `${monitor.name}-checks.csv`)
+              }
+            >
+              Export
             </Button>
             <Button
               size="sm"
