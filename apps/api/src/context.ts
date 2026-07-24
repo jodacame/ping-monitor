@@ -6,9 +6,13 @@ import {
   loadApiConfig,
   loadCommonConfig,
   loadDatabaseConfig,
+  loadRedisConfig,
 } from '@ping/config';
 import { Database } from '@ping/db';
+import { createRedis } from '@ping/queue';
+import { WsHub, startEventBroadcaster } from './ws/hub.js';
 import { TokenService } from './auth/tokens.js';
+import { ApiKeyService } from './services/api-key-service.js';
 import { AuthService } from './services/auth-service.js';
 import { ChannelService } from './services/channel-service.js';
 import { GroupService } from './services/group-service.js';
@@ -37,6 +41,8 @@ export interface AppContext {
   readonly groups: GroupService;
   readonly statusPages: StatusPageService;
   readonly tags: TagService;
+  readonly apiKeys: ApiKeyService;
+  readonly wsHub: WsHub;
   close(): Promise<void>;
 }
 
@@ -56,6 +62,11 @@ export function buildContext(): AppContext {
     apiConfig.jwtRefreshTtl,
   );
 
+  // Real-time event fan-out to WebSocket clients.
+  const wsRedis = createRedis(loadRedisConfig());
+  const wsHub = new WsHub();
+  const stopBroadcaster = startEventBroadcaster(wsRedis, wsHub, 'events:monitor', logger);
+
   return {
     apiConfig,
     commonConfig,
@@ -70,7 +81,11 @@ export function buildContext(): AppContext {
     groups: new GroupService(db),
     statusPages: new StatusPageService(db),
     tags: new TagService(db),
+    apiKeys: new ApiKeyService(db),
+    wsHub,
     async close(): Promise<void> {
+      stopBroadcaster();
+      wsRedis.disconnect();
       await db.close();
     },
   };

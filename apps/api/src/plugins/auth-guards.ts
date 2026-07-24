@@ -1,18 +1,21 @@
 import type { preHandlerHookHandler } from 'fastify';
 import { ForbiddenError, UnauthorizedError } from '@ping/core';
-import { WorkspaceRepository } from '@ping/db';
+import { WorkspaceRepository, WorkspaceRole } from '@ping/db';
 import type { AppContext } from '../context.js';
+import { isApiKey } from '../services/api-key-service.js';
 
 /**
  * Request guards used as route `preHandler`s.
  *
- *  - `authenticate` verifies the bearer access token and attaches `authUser`.
- *  - `resolveWorkspace` ensures the caller is a member of `:workspaceId` and
- *    attaches the `workspace` context (id + role) for authorization.
+ *  - `authenticate` accepts either a user JWT (sets `authUser`) or a developer
+ *    API key (sets `apiKey`).
+ *  - `resolveWorkspace` authorizes access to `:workspaceId` for either principal.
+ *  - `requireUser` restricts a route to real user sessions (blocks API keys).
  */
 export interface AuthGuards {
   readonly authenticate: preHandlerHookHandler;
   readonly resolveWorkspace: preHandlerHookHandler;
+  readonly requireUser: preHandlerHookHandler;
 }
 
 function bearerToken(header: string | undefined): string | null {
@@ -26,6 +29,13 @@ export function createAuthGuards(ctx: AppContext): AuthGuards {
     const token = bearerToken(request.headers.authorization);
     if (!token) throw new UnauthorizedError('Missing bearer token');
 
+    if (isApiKey(token)) {
+      const auth = await ctx.apiKeys.verify(token);
+      if (!auth) throw new UnauthorizedError('Invalid API key');
+      request.apiKey = auth;
+      return;
+    }
+
     try {
       const claims = await ctx.tokens.verifyAccessToken(token);
       request.authUser = { userId: claims.uid, publicId: claims.sub, email: claims.email };
@@ -35,22 +45,36 @@ export function createAuthGuards(ctx: AppContext): AuthGuards {
   };
 
   const resolveWorkspace: preHandlerHookHandler = async (request) => {
-    const user = request.authUser;
-    if (!user) throw new UnauthorizedError();
-
     const params = request.params as { workspaceId?: string };
     const workspaceId = params.workspaceId;
     if (!workspaceId) throw new ForbiddenError('Workspace not specified');
 
+    if (request.apiKey) {
+      if (request.apiKey.workspacePublicId !== workspaceId) {
+        throw new ForbiddenError('This API key is not valid for this workspace');
+      }
+      request.workspace = {
+        id: request.apiKey.workspaceId,
+        publicId: workspaceId,
+        role: WorkspaceRole.Admin,
+      };
+      return;
+    }
+
+    const user = request.authUser;
+    if (!user) throw new UnauthorizedError();
     const membership = await new WorkspaceRepository(ctx.db).findForUser(workspaceId, user.userId);
     if (!membership) throw new ForbiddenError('You do not have access to this workspace');
-
-    request.workspace = {
-      id: membership.id,
-      publicId: membership.publicId,
-      role: membership.role,
-    };
+    request.workspace = { id: membership.id, publicId: membership.publicId, role: membership.role };
   };
 
-  return { authenticate, resolveWorkspace };
+  const requireUser: preHandlerHookHandler = (request, _reply, done) => {
+    if (!request.authUser) {
+      done(new ForbiddenError('This action requires a signed-in user'));
+      return;
+    }
+    done();
+  };
+
+  return { authenticate, resolveWorkspace, requireUser };
 }

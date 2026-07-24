@@ -22,6 +22,10 @@ export const createWorkspaceSchema = z.object({
   name: z.string().trim().min(1).max(80),
 });
 
+export const createApiKeySchema = z.object({
+  name: z.string().trim().min(1).max(60),
+});
+
 const monitorType = z.enum(['http', 'tcp', 'icmp']);
 const interval = z
   .number()

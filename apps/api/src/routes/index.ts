@@ -6,6 +6,7 @@ import { registerChannelRoutes } from './channel-routes.js';
 import { registerGroupRoutes } from './group-routes.js';
 import { registerMiscRoutes } from './misc-routes.js';
 import { registerMonitorRoutes } from './monitor-routes.js';
+import { registerApiKeyRoutes } from './api-key-routes.js';
 import { registerStatusPageRoutes } from './status-page-routes.js';
 import { registerTagRoutes } from './tag-routes.js';
 
@@ -19,4 +20,5 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   registerGroupRoutes(app, ctx, guards);
   registerStatusPageRoutes(app, ctx, guards);
   registerTagRoutes(app, ctx, guards);
+  registerApiKeyRoutes(app, ctx, guards);
 }

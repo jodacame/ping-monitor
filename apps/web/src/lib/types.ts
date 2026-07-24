@@ -74,6 +74,18 @@ export interface Tag {
   color: string;
 }
 
+export interface ApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+export interface ApiKeyWithSecret extends ApiKey {
+  key: string;
+}
+
 export interface WorkspaceInsights {
   uptime: number | null;
   avgLatencyMs: number | null;

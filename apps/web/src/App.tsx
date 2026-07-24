@@ -5,6 +5,7 @@ import { useAuth } from './lib/auth';
 import { AlertsPage } from './pages/AlertsPage';
 import { ChannelFormPage } from './pages/ChannelFormPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { DeveloperPage } from './pages/DeveloperPage';
 import { LoginPage } from './pages/LoginPage';
 import { MonitorDetailPage } from './pages/MonitorDetailPage';
 import { MonitorFormPage } from './pages/MonitorFormPage';
@@ -44,6 +45,7 @@ export function App() {
       <Route path="/alerts/new" element={requireAuth(<ChannelFormPage />)} />
 
       <Route path="/status-pages" element={requireAuth(<StatusPagesPage />)} />
+      <Route path="/developers" element={requireAuth(<DeveloperPage />)} />
       <Route path="/settings" element={requireAuth(<SettingsPage />)} />
 
       <Route path="*" element={<Navigate to={user ? '/' : '/login'} replace />} />

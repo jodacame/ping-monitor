@@ -5,6 +5,7 @@ import {
   BellRing,
   Check,
   ChevronsUpDown,
+  Code2,
   Globe2,
   LayoutDashboard,
   LogOut,
@@ -24,6 +25,7 @@ const NAV = [
   { icon: LayoutDashboard, label: 'Dashboard', to: '/' },
   { icon: BellRing, label: 'Alerts', to: '/alerts' },
   { icon: Globe2, label: 'Status Pages', to: '/status-pages' },
+  { icon: Code2, label: 'Developers', to: '/developers' },
   { icon: Settings, label: 'Settings', to: '/settings' },
 ];
 

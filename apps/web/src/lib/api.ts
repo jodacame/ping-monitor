@@ -1,4 +1,6 @@
 import type {
+  ApiKey,
+  ApiKeyWithSecret,
   AuthResult,
   AuthUser,
   Channel,
@@ -304,6 +306,20 @@ export const api = {
 
   deleteTag(workspaceId: string, id: string): Promise<void> {
     return request(`/workspaces/${workspaceId}/tags/${id}`, { method: 'DELETE' });
+  },
+
+  // --- Developer API keys ----------------------------------------------------
+
+  listApiKeys(workspaceId: string): Promise<ApiKey[]> {
+    return request(`/workspaces/${workspaceId}/api-keys`);
+  },
+
+  createApiKey(workspaceId: string, name: string): Promise<ApiKeyWithSecret> {
+    return request(`/workspaces/${workspaceId}/api-keys`, { method: 'POST', body: { name } });
+  },
+
+  revokeApiKey(workspaceId: string, id: string): Promise<void> {
+    return request(`/workspaces/${workspaceId}/api-keys/${id}`, { method: 'DELETE' });
   },
 
   getMonitor(workspaceId: string, id: string): Promise<Monitor> {

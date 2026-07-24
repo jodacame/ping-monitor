@@ -26,8 +26,11 @@ Node.js.
   consumers (alerting, webhooks, analytics).
 - **Anti-false-positive retries.** A pure, unit-tested state machine flips a
   monitor only after N consecutive failures, and recovers after M successes.
+- **Developer-friendly.** A REST API and a real-time WebSocket for status-change
+  events, both authenticated with workspace-scoped API keys. See
+  [`docs/API.md`](docs/API.md).
 - **A dashboard people actually enjoy.** React + Vite, light/dark, fully
-  responsive (mobile-first), with an "act without leaving the screen" drawer UX.
+  responsive (mobile-first), dedicated pages with real URLs.
 
 ## Architecture
 
