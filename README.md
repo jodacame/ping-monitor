@@ -163,12 +163,36 @@ Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
+## 🤖 Build record — human + AI
+
+This project is kept as a **transparent record of what it looks like to build a
+production-grade tool with AI in 2026**: a developer directing and reviewing, and
+an AI pair doing the heavy lifting. The numbers below are published for research,
+tracking and posterity — a small time capsule of the cost and pace of this way of
+working. They come straight from the Claude Code session report (API list pricing),
+not marketing estimates.
+
+<table>
+  <tr><td><b>🧠 Model</b></td><td>Claude <b>Opus 4.8</b> (1M context) — Anthropic</td></tr>
+  <tr><td><b>👤 Direction & review</b></td><td>Human-in-the-loop (design, decisions, QA, sign-off)</td></tr>
+  <tr><td><b>📅 Session</b></td><td>July 2026</td></tr>
+  <tr><td><b>⏱️ Time</b></td><td>~4h 11m wall · 3h 11m API</td></tr>
+  <tr><td><b>📝 Code changes</b></td><td>+16,940 / −718 lines</td></tr>
+  <tr><td><b>🔤 Tokens</b></td><td>~809K generated · ~365M processed (mostly cached context)</td></tr>
+  <tr><td><b>💵 AI cost</b></td><td><b>$212.64 USD</b> (Anthropic API list pricing)</td></tr>
+  <tr><td><b>📊 Cost / net line</b></td><td>≈ $0.013</td></tr>
+</table>
+
+> A full monorepo — API, scheduler, worker, notifier and web dashboard, plus
+> migrations, tests and docs — designed, built and reviewed in a single afternoon.
+> Not to replace engineers, but to show how far a senior developer and a capable
+> model can go together, and to leave an honest data point for whoever looks back.
+
 <p align="center">
-  🤖🧑‍🚀 <b>Friendly disclaimer:</b> this was built by an AI and a human keeping an eye on
-  it (mostly saying "yes, ship it"). It started as a personal project, but it's free
-  and open — so if it saves your bacon at 3&nbsp;a.m. when prod goes down, it's yours.
-  No warranties, just good vibes and a decent test suite. Use it, fork it, break it,
-  make it better. 🛰️💚
+  🤖🧑‍🚀 <b>Friendly note:</b> built by an AI and a human keeping an eye on it (mostly
+  saying "yes, ship it"). Started as a personal project, but it's free and open — so
+  if it saves your bacon at 3&nbsp;a.m. when prod goes down, it's yours. No warranties,
+  just good vibes and a decent test suite. Use it, fork it, break it, make it better. 🛰️💚
 </p>
 
 <p align="center"><sub>Keywords: uptime monitoring · status page · website monitoring · server monitoring · HTTP/TCP/ICMP/ping monitor · SSL monitoring · self-hosted · open source · Docker · PostgreSQL · TypeScript · React · Uptime Kuma alternative</sub></p>
