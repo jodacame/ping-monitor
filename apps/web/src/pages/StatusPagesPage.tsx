@@ -8,7 +8,15 @@ import type { StatusPageSummary } from '../lib/types';
 import { AppShell } from '../components/AppShell';
 import { Button, Card, ConfirmDialog, EmptyState, Field, Input, Spinner } from '../components/ui';
 
-function CreateForm({ workspaceId, onCreated }: { workspaceId: string; onCreated: () => void }) {
+function CreateForm({
+  workspaceId,
+  onCreated,
+  onCancel,
+}: {
+  workspaceId: string;
+  onCreated: () => void;
+  onCancel: () => void;
+}) {
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
@@ -84,7 +92,10 @@ function CreateForm({ workspaceId, onCreated }: { workspaceId: string; onCreated
         </div>
       </Field>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
         <Button onClick={() => create.mutate()} loading={create.isPending} disabled={!title.trim()}>
           Create status page
         </Button>
@@ -160,7 +171,13 @@ export function StatusPagesPage() {
       }
     >
       <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
-        {creating && <CreateForm workspaceId={workspaceId} onCreated={() => void refresh()} />}
+        {creating && (
+          <CreateForm
+            workspaceId={workspaceId}
+            onCreated={() => void refresh()}
+            onCancel={() => setCreating(false)}
+          />
+        )}
 
         {pages.isLoading ? (
           <div className="grid place-items-center py-16 text-muted">

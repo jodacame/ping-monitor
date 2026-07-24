@@ -14,7 +14,6 @@ import {
   Button,
   ConfirmDialog,
   EmptyState,
-  IconButton,
   Input,
   SegmentedControl,
   Select,
@@ -161,13 +160,15 @@ export function DashboardPage() {
                     ))}
                   </Select>
                 )}
-                <IconButton
-                  label="New group"
+                <Button
+                  size="sm"
                   variant="secondary"
+                  leadingIcon={<FolderPlus size={15} />}
                   onClick={() => createGroup.mutate()}
+                  className="h-9"
                 >
-                  <FolderPlus size={16} />
-                </IconButton>
+                  New group
+                </Button>
               </div>
             </div>
 
