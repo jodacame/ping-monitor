@@ -19,11 +19,12 @@ import { useTheme } from '../lib/theme';
 import type { Workspace } from '../lib/types';
 import { Badge, IconButton } from './ui';
 import { Brand } from './Brand';
+import { AlertsDrawer } from './AlertsDrawer';
 
 const NAV = [
   { icon: LayoutDashboard, label: 'Dashboard', active: true },
+  { icon: BellRing, label: 'Alerts' },
   { icon: Globe2, label: 'Status Pages', soon: true },
-  { icon: BellRing, label: 'Alerts', soon: true },
   { icon: Settings, label: 'Settings', soon: true },
 ];
 
@@ -119,7 +120,13 @@ function UserFooter() {
   );
 }
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({
+  onNavigate,
+  onNav,
+}: {
+  onNavigate?: () => void;
+  onNav: (label: string) => void;
+}) {
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 py-5">
@@ -129,7 +136,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         {NAV.map((item) => (
           <button
             key={item.label}
-            onClick={onNavigate}
+            onClick={() => {
+              if (item.soon) return;
+              onNav(item.label);
+              onNavigate?.();
+            }}
             disabled={item.soon}
             className={cn(
               'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
@@ -164,12 +175,18 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const { currentWorkspace } = useAuth();
+
+  const handleNav = (label: string): void => {
+    if (label === 'Alerts') setAlertsOpen(true);
+  };
 
   return (
     <div className="flex h-full">
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 border-r border-border bg-surface lg:block">
-        <SidebarContent />
+        <SidebarContent onNav={handleNav} />
       </aside>
 
       {/* Mobile sidebar */}
@@ -195,7 +212,7 @@ export function AppShell({
                   <X size={18} />
                 </IconButton>
               </div>
-              <SidebarContent onNavigate={() => setMobileOpen(false)} />
+              <SidebarContent onNavigate={() => setMobileOpen(false)} onNav={handleNav} />
             </motion.aside>
           </div>
         )}
@@ -225,6 +242,12 @@ export function AppShell({
 
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+
+      <AlertsDrawer
+        open={alertsOpen}
+        onClose={() => setAlertsOpen(false)}
+        workspaceId={currentWorkspace?.id ?? ''}
+      />
     </div>
   );
 }

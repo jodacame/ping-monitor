@@ -8,3 +8,4 @@ export { StatusDot, StatusBadge, STATUS_META } from './StatusIndicator';
 export { SegmentedControl, type SegmentOption } from './SegmentedControl';
 export { Drawer } from './Drawer';
 export { Modal, ConfirmDialog } from './Modal';
+export { Switch } from './Switch';

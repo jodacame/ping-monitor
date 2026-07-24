@@ -17,26 +17,15 @@ function healthTone(overview: Overview): { color: string; label: string } {
   return { color: 'var(--up)', label: 'All systems operational' };
 }
 
-/** A 270° radial gauge showing 24h uptime, ringed in the current health colour. */
+/** A full radial gauge showing 24h uptime, ringed in the current health colour. */
 function UptimeGauge({ uptime, color }: { uptime: number | null; color: string }) {
   const fraction = uptime ?? 0;
-  const visible = 75; // 270° of a pathLength=100 circle
-  const value = fraction * visible;
+  const value = fraction * 100;
 
   return (
     <div className="relative mx-auto h-40 w-40">
-      <svg viewBox="0 0 120 120" className="h-full w-full -rotate-[135deg]">
-        <circle
-          cx="60"
-          cy="60"
-          r="52"
-          fill="none"
-          stroke="var(--border)"
-          strokeWidth="9"
-          strokeLinecap="round"
-          pathLength={100}
-          strokeDasharray={`${visible} ${100 - visible}`}
-        />
+      <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" strokeWidth="9" />
         <circle
           cx="60"
           cy="60"
