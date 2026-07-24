@@ -8,6 +8,7 @@
 </p>
 
 <p align="center">
+  <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-100%25-3fb950">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-3fb950.svg"></a>
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white">
   <img alt="Node" src="https://img.shields.io/badge/Node-26-339933?logo=nodedotjs&logoColor=white">
@@ -23,6 +24,16 @@
 
 > A modern, open-source alternative for **website monitoring**, **server monitoring**
 > and **status pages** — think Uptime Kuma / Better Uptime, self-hosted and yours.
+
+## 🏠 Self-hosted by design
+
+Ping Monitor is **built to run on your own infrastructure** — not a SaaS with a
+self-host afterthought. There is **no hosted plan, no account to sign up for, and
+no phone-home**: you run it with Docker, your data stays in **your** PostgreSQL,
+and nothing leaves your servers. The whole architecture — Docker Compose bundle,
+region-pinned workers, a portable schema on vanilla PostgreSQL, an admin CLI for
+recovery — assumes **you** are the operator. You own the data, the uptime, and the
+keys.
 
 ---
 
