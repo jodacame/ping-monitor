@@ -1,0 +1,180 @@
+import { MonitorType, NotFoundError, ValidationError, newId } from '@ping/core';
+import { parseHttpConfig } from '@ping/checks';
+import {
+  type Database,
+  InfraRepository,
+  type ListMonitorsFilter,
+  type MonitorRecord,
+  MonitorRepository,
+} from '@ping/db';
+
+export interface CreateMonitorInput {
+  readonly name: string;
+  readonly type: MonitorType;
+  readonly target: string;
+  readonly config: Record<string, unknown>;
+  readonly intervalSeconds: number;
+  readonly timeoutMs: number;
+  readonly failureThreshold: number;
+  readonly recoveryThreshold: number;
+  readonly quorum: number;
+  readonly regionIds: number[];
+}
+
+export type UpdateMonitorInput = Partial<
+  Pick<
+    CreateMonitorInput,
+    | 'name'
+    | 'target'
+    | 'config'
+    | 'intervalSeconds'
+    | 'timeoutMs'
+    | 'failureThreshold'
+    | 'recoveryThreshold'
+    | 'quorum'
+    | 'regionIds'
+  >
+>;
+
+export interface MonitorView extends MonitorRecord {
+  readonly regionIds: number[];
+}
+
+/**
+ * Monitor use cases. Validates type-specific configuration and target shape,
+ * resolves the set of probe regions, and keeps monitor + assignments consistent
+ * inside a transaction.
+ */
+export class MonitorService {
+  constructor(private readonly db: Database) {}
+
+  async create(workspaceId: string, input: CreateMonitorInput): Promise<MonitorView> {
+    const config = this.normalizeConfig(input.type, input.target, input.config);
+    const regionIds = await this.resolveRegions(input.regionIds);
+    const quorum = this.clampQuorum(input.quorum, regionIds.length);
+
+    const monitor = await this.db.transaction((tx) =>
+      new MonitorRepository(tx).createWithRegions({
+        publicId: newId(),
+        workspaceId,
+        name: input.name.trim(),
+        type: input.type,
+        target: input.target.trim(),
+        config,
+        intervalSeconds: input.intervalSeconds,
+        timeoutMs: input.timeoutMs,
+        failureThreshold: input.failureThreshold,
+        recoveryThreshold: input.recoveryThreshold,
+        quorum,
+        regionIds,
+      }),
+    );
+    return { ...monitor, regionIds };
+  }
+
+  async list(filter: ListMonitorsFilter): Promise<{ items: MonitorRecord[]; total: number }> {
+    return new MonitorRepository(this.db).list(filter);
+  }
+
+  async get(workspaceId: string, publicId: string): Promise<MonitorView> {
+    const repo = new MonitorRepository(this.db);
+    const monitor = await repo.findByPublicId(publicId, workspaceId);
+    if (!monitor) throw new NotFoundError('Monitor not found');
+    const regionIds = await repo.listRegionIds(monitor.id);
+    return { ...monitor, regionIds };
+  }
+
+  async update(
+    workspaceId: string,
+    publicId: string,
+    input: UpdateMonitorInput,
+  ): Promise<MonitorView> {
+    const existing = await this.get(workspaceId, publicId);
+
+    const config =
+      input.config !== undefined
+        ? this.normalizeConfig(existing.type, input.target ?? existing.target, input.config)
+        : undefined;
+
+    const updated = await this.db.transaction(async (tx) => {
+      const repo = new MonitorRepository(tx);
+      const monitor = await repo.update(publicId, workspaceId, {
+        ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+        ...(input.target !== undefined ? { target: input.target.trim() } : {}),
+        ...(config !== undefined ? { config } : {}),
+        ...(input.intervalSeconds !== undefined ? { intervalSeconds: input.intervalSeconds } : {}),
+        ...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {}),
+        ...(input.failureThreshold !== undefined
+          ? { failureThreshold: input.failureThreshold }
+          : {}),
+        ...(input.recoveryThreshold !== undefined
+          ? { recoveryThreshold: input.recoveryThreshold }
+          : {}),
+        ...(input.quorum !== undefined ? { quorum: input.quorum } : {}),
+      });
+      if (!monitor) throw new NotFoundError('Monitor not found');
+
+      if (input.regionIds !== undefined) {
+        const regionIds = await this.resolveRegions(input.regionIds);
+        await repo.replaceAssignments(monitor.id, regionIds);
+      }
+      return monitor;
+    });
+
+    const regionIds = await new MonitorRepository(this.db).listRegionIds(updated.id);
+    return { ...updated, regionIds };
+  }
+
+  async setPaused(workspaceId: string, publicId: string, paused: boolean): Promise<void> {
+    const monitor = await this.get(workspaceId, publicId);
+    await this.db.transaction((tx) => new MonitorRepository(tx).setEnabled(monitor.id, !paused));
+  }
+
+  async delete(workspaceId: string, publicId: string): Promise<void> {
+    const deleted = await new MonitorRepository(this.db).delete(publicId, workspaceId);
+    if (!deleted) throw new NotFoundError('Monitor not found');
+  }
+
+  // --- helpers ---------------------------------------------------------------
+
+  private normalizeConfig(
+    type: MonitorType,
+    target: string,
+    config: Record<string, unknown>,
+  ): Record<string, unknown> {
+    if (type === MonitorType.Http) {
+      let url: URL;
+      try {
+        url = new URL(target);
+      } catch {
+        throw new ValidationError('HTTP monitor target must be a valid URL');
+      }
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        throw new ValidationError('HTTP monitor target must use http or https');
+      }
+      try {
+        return { ...parseHttpConfig(config) };
+      } catch (err) {
+        throw new ValidationError(
+          err instanceof Error ? err.message : 'Invalid HTTP monitor config',
+        );
+      }
+    }
+    throw new ValidationError(`Monitor type "${type}" is not supported yet`);
+  }
+
+  private async resolveRegions(requested: number[]): Promise<number[]> {
+    const available = await new InfraRepository(this.db).listRegions(true);
+    const validIds = new Set(available.map((r) => r.id));
+    const filtered = [...new Set(requested)].filter((id) => validIds.has(id));
+    if (filtered.length > 0) return filtered;
+    // Fall back to the default region so a monitor is always schedulable.
+    const fallback = available[0]?.id;
+    if (fallback === undefined) throw new ValidationError('No probe regions are configured');
+    return [fallback];
+  }
+
+  private clampQuorum(quorum: number, regionCount: number): number {
+    return Math.min(Math.max(1, quorum), Math.max(1, regionCount));
+  }
+}

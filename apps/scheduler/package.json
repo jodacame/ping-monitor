@@ -1,0 +1,19 @@
+{
+  "name": "@ping/scheduler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Claims due (monitor, region) assignments and enqueues checks; maintains partitions and retention.",
+  "main": "./src/main.ts",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ping/config": "workspace:*",
+    "@ping/core": "workspace:*",
+    "@ping/db": "workspace:*",
+    "@ping/queue": "workspace:*"
+  }
+}

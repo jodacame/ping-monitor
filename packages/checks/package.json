@@ -1,0 +1,20 @@
+{
+  "name": "@ping/checks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Probe executors (Strategy pattern): HTTP/HTTPS today, TCP and ICMP next, behind one CheckExecutor interface.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ping/core": "workspace:*",
+    "zod": "^3.24.0"
+  }
+}

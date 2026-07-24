@@ -1,0 +1,37 @@
+{
+  "name": "ping-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted, horizontally scalable uptime monitoring (HTTP/TCP/ICMP) built on Node.js, PostgreSQL and Redis.",
+  "engines": {
+    "node": ">=26"
+  },
+  "packageManager": "pnpm@11.8.0",
+  "scripts": {
+    "build": "pnpm -r --filter \"./apps/*\" run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --filter @ping/web run typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev:api": "pnpm --filter @ping/api run dev",
+    "dev:scheduler": "pnpm --filter @ping/scheduler run dev",
+    "dev:worker": "pnpm --filter @ping/worker run dev",
+    "dev:web": "pnpm --filter @ping/web run dev",
+    "migrate": "pnpm --filter @ping/db run migrate",
+    "migrate:make": "pnpm --filter @ping/db run migrate:make"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "eslint": "^9.20.0",
+    "prettier": "^3.5.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.24.0",
+    "vite-tsconfig-paths": "^5.1.0",
+    "vitest": "^3.0.0",
+    "@eslint/js": "^9.20.0"
+  }
+}

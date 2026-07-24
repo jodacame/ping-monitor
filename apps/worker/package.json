@@ -1,0 +1,20 @@
+{
+  "name": "@ping/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Region probe: consumes checks, executes them, persists results/rollups, evaluates status and emits events.",
+  "main": "./src/main.ts",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ping/checks": "workspace:*",
+    "@ping/config": "workspace:*",
+    "@ping/core": "workspace:*",
+    "@ping/db": "workspace:*",
+    "@ping/queue": "workspace:*"
+  }
+}

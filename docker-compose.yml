@@ -1,0 +1,108 @@
+# ===========================================================================
+# Ping Monitor — self-hosting bundle.
+#
+# Brings up everything needed to run the product on a single host:
+#   postgres + redis + migrate (one-shot) + api + scheduler + worker(s) + web.
+#
+#   docker compose up -d --build
+#   docker compose up -d --scale worker=3     # scale probes horizontally
+#
+# Configure via a .env file next to this one (see .env.example). Sensible
+# defaults are baked in so it also runs out of the box for evaluation.
+#
+# NOTE: On the shared dev server we do NOT run this bundle (it starts its own
+# Postgres). There, use the shared services with one-off containers instead.
+# ===========================================================================
+name: ping-monitor
+
+x-backend-env: &backend-env
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-ping}:${POSTGRES_PASSWORD:-ping}@postgres:5432/${POSTGRES_DB:-ping}
+  REDIS_URL: redis://redis:6379
+  JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_TO_A_LONG_RANDOM_SECRET_0123456789}
+  PROBE_REGION: ${PROBE_REGION:-local}
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ping}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ping}
+      POSTGRES_DB: ${POSTGRES_DB:-ping}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-ping}']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ['pnpm', '--filter', '@ping/db', 'run', 'migrate']
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ['pnpm', '--filter', '@ping/api', 'run', 'start']
+    environment: *backend-env
+    depends_on:
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ['pnpm', '--filter', '@ping/scheduler', 'run', 'start']
+    environment: *backend-env
+    depends_on:
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ['pnpm', '--filter', '@ping/worker', 'run', 'start']
+    environment: *backend-env
+    depends_on:
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:

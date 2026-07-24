@@ -1,0 +1,178 @@
+@import 'tailwindcss';
+
+/* Class-based dark mode (toggled on <html>), defaulting to dark. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Semantic design tokens. Values are CSS variables that switch with the theme;
+ * mapping them into @theme generates utilities like `bg-surface`, `text-muted`,
+ * `border-border`, `text-up`, etc.
+ */
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-warn: var(--warn);
+  --color-pending: var(--pending);
+
+  --radius-xl: 0.9rem;
+}
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --elevated: #ffffff;
+  --border: #e5e8ec;
+  --fg: #0f172a;
+  --muted: #64748b;
+  --primary: #4f46e5;
+  --primary-fg: #ffffff;
+  --up: #10b981;
+  --down: #ef4444;
+  --warn: #f59e0b;
+  --pending: #94a3b8;
+}
+
+.dark {
+  --bg: #0a0e17;
+  --surface: #111725;
+  --elevated: #161d2e;
+  --border: #1e2637;
+  --fg: #e6e9ef;
+  --muted: #8b98ad;
+  --primary: #6366f1;
+  --primary-fg: #ffffff;
+  --up: #34d399;
+  --down: #f87171;
+  --warn: #fbbf24;
+  --pending: #7c8aa0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Subtle, theme-aware scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ---------------------------------------------------------------------------
+ * Premium motion primitives. Kept as CSS so most animation is free of JS.
+ * Respect users who prefer reduced motion.
+ * ------------------------------------------------------------------------- */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Expanding ring used behind a live "up" status dot. */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.6;
+  }
+  80%,
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes float-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: translate3d(0, -12px, 0) scale(1.08);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-scale-in {
+  animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Shimmering skeleton overlay. */
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--fg) 8%, transparent),
+    transparent
+  );
+  animation: shimmer 1.6s infinite;
+}
+
+/* Ambient background glow for hero/auth surfaces. */
+.ambient-glow {
+  background: radial-gradient(
+      55% 55% at 15% 15%,
+      color-mix(in oklab, var(--primary) 22%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(50% 50% at 90% 20%, color-mix(in oklab, var(--up) 16%, transparent), transparent 70%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

@@ -1,0 +1,12 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+
+# Dependencies whose install/build scripts are explicitly allowed to run.
+# esbuild fetches its platform binary via a postinstall script (needed by tsx
+# and vite). `onlyBuiltDependencies` is the standard pnpm setting; `allowBuilds`
+# is honored by this dev server's pnpm wrapper — both are kept for portability.
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true
