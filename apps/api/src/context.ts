@@ -10,6 +10,7 @@ import {
 import { Database } from '@ping/db';
 import { TokenService } from './auth/tokens.js';
 import { AuthService } from './services/auth-service.js';
+import { ChannelService } from './services/channel-service.js';
 import { InfraService } from './services/infra-service.js';
 import { MonitorService } from './services/monitor-service.js';
 import { StatsService } from './services/stats-service.js';
@@ -29,6 +30,7 @@ export interface AppContext {
   readonly monitors: MonitorService;
   readonly stats: StatsService;
   readonly infra: InfraService;
+  readonly channels: ChannelService;
   close(): Promise<void>;
 }
 
@@ -58,6 +60,7 @@ export function buildContext(): AppContext {
     monitors: new MonitorService(db),
     stats: new StatsService(db),
     infra: new InfraService(db),
+    channels: new ChannelService(db),
     async close(): Promise<void> {
       await db.close();
     },

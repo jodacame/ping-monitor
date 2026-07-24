@@ -34,17 +34,13 @@ export class Database implements Queryable {
       // Fail fast rather than hanging forever when the DB is unreachable.
       connectionTimeoutMillis: 10_000,
       application_name: 'ping-monitor',
+      // Pin every connection to UTC at startup (no extra round-trip / race) so
+      // time-bucket truncation (rollups, partitions) is deterministic.
+      options: '-c timezone=UTC',
     });
     this.log = log;
     this.pool.on('error', (err) => {
       this.log?.error({ err }, 'idle postgres client error');
-    });
-    // Pin every connection to UTC so time-bucket truncation (rollups,
-    // partitions) is deterministic regardless of the server's local timezone.
-    this.pool.on('connect', (client) => {
-      client.query("SET TIME ZONE 'UTC'").catch((err: unknown) => {
-        this.log?.error({ err }, 'failed to set session timezone to UTC');
-      });
     });
   }
 

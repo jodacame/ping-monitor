@@ -70,3 +70,22 @@ export const statsQuerySchema = z.object({
 export const recentChecksQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
+
+// --- Notification channels ---------------------------------------------------
+
+export const createChannelSchema = z.object({
+  type: z.enum(['smtp', 'telegram', 'webhook']),
+  name: z.string().trim().min(1).max(120),
+  // Connector-specific; deeply validated by the notifications package.
+  config: z.record(z.unknown()),
+  enabled: z.boolean().optional(),
+});
+
+export const updateChannelSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    config: z.record(z.unknown()),
+    enabled: z.boolean(),
+  })
+  .partial()
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'No fields to update' });

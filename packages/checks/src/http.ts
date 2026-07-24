@@ -9,6 +9,12 @@ import {
 } from '@ping/core';
 import type { CheckContext, CheckExecutor } from './executor.js';
 import { classifyNetworkError } from './network-errors.js';
+import {
+  assertionGroupSchema,
+  assertionsNeedBody,
+  assertionsNeedJson,
+  evaluateAssertions,
+} from './assertions.js';
 
 /**
  * Type-specific configuration for HTTP monitors, validated at the edges so the
@@ -29,6 +35,8 @@ export const httpConfigSchema = z
     /** When set, the response body must contain this substring. */
     keyword: z.string().min(1).optional(),
     followRedirects: z.boolean().default(true),
+    /** Optional health assertions (AND/OR tree) evaluated against the response. */
+    assertions: assertionGroupSchema.optional(),
   })
   .strip();
 
@@ -75,8 +83,10 @@ export class HttpCheckExecutor implements CheckExecutor {
 
       const response = await fetch(context.target, init);
 
-      // Only read the body when a keyword assertion requires it.
-      const bodyText = config.keyword ? await response.text() : undefined;
+      // Read the body only when a keyword or body/json assertion needs it.
+      const needsBody =
+        Boolean(config.keyword) || (config.assertions ? assertionsNeedBody(config.assertions) : false);
+      const bodyText = needsBody ? await response.text() : undefined;
       const elapsed = Math.round(performance.now() - start);
 
       if (!statusAccepted(response.status, config.acceptedStatusRanges)) {
@@ -93,6 +103,36 @@ export class HttpCheckExecutor implements CheckExecutor {
           elapsed,
           response.status,
         );
+      }
+
+      if (config.assertions) {
+        // Parse JSON lazily, only when a json assertion is present.
+        let json: unknown;
+        if (assertionsNeedJson(config.assertions)) {
+          try {
+            json = JSON.parse(bodyText ?? '');
+          } catch {
+            return outcomeDown(
+              { kind: CheckErrorKind.Protocol, message: 'Response body is not valid JSON' },
+              elapsed,
+              response.status,
+            );
+          }
+        }
+        const result = evaluateAssertions(config.assertions, {
+          status: response.status,
+          responseMs: elapsed,
+          bodyText,
+          headers: response.headers,
+          json,
+        });
+        if (!result.ok) {
+          return outcomeDown(
+            { kind: CheckErrorKind.Protocol, message: `Assertion failed: ${result.reason ?? ''}` },
+            elapsed,
+            response.status,
+          );
+        }
       }
 
       return outcomeUp(elapsed, response.status);

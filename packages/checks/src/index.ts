@@ -6,6 +6,7 @@ import { HttpCheckExecutor } from './http.js';
 
 export * from './executor.js';
 export * from './http.js';
+export * from './assertions.js';
 export * from './network-errors.js';
 
 /**

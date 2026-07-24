@@ -94,6 +94,19 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  notifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ['pnpm', '--filter', '@ping/notifier', 'run', 'start']
+    environment: *backend-env
+    depends_on:
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   web:
     build:
       context: .
