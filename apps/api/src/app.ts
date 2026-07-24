@@ -18,7 +18,10 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   const app = Fastify({
     logger: false, // we use our own pino logger via ctx
     trustProxy: true,
-    bodyLimit: 1_048_576, // 1 MiB
+    // JSON-only API with small payloads (no uploads/bulk import). 256 KiB is 4x
+    // tighter than Fastify's 1 MiB default and still fits the largest realistic
+    // body — a status page referencing thousands of monitor ids.
+    bodyLimit: 262_144, // 256 KiB
   });
 
   app.decorate('ctx', ctx);
