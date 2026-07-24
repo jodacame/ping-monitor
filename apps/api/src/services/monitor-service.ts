@@ -7,6 +7,7 @@ import {
   type MonitorRecord,
   MonitorGroupRepository,
   MonitorRepository,
+  NotificationChannelRepository,
   TagRepository,
 } from '@ping/db';
 
@@ -25,6 +26,8 @@ export interface CreateMonitorInput {
   readonly groupId?: string | null;
   /** Tag ids to assign to this monitor. */
   readonly tagIds?: string[];
+  /** Public ids of the notification channels this monitor alerts to. */
+  readonly channelIds?: string[];
 }
 
 export type UpdateMonitorInput = Partial<
@@ -41,6 +44,7 @@ export type UpdateMonitorInput = Partial<
     | 'regionIds'
     | 'groupId'
     | 'tagIds'
+    | 'channelIds'
   >
 >;
 
@@ -64,6 +68,12 @@ export class MonitorService {
     const tagIds = input.tagIds?.length
       ? await new TagRepository(this.db).resolveIds(workspaceId, input.tagIds)
       : [];
+    const channelIds = input.channelIds?.length
+      ? await new NotificationChannelRepository(this.db).resolveInternalIds(
+          workspaceId,
+          input.channelIds,
+        )
+      : [];
 
     const monitor = await this.db.transaction(async (tx) => {
       const repo = new MonitorRepository(tx);
@@ -83,6 +93,7 @@ export class MonitorService {
         regionIds,
       });
       if (tagIds.length) await repo.replaceTags(created.publicId, workspaceId, tagIds);
+      if (channelIds.length) await repo.replaceChannels(created.publicId, workspaceId, channelIds);
       return created;
     });
     return this.get(workspaceId, monitor.publicId);
@@ -141,6 +152,13 @@ export class MonitorService {
       if (input.tagIds !== undefined) {
         const tagIds = await new TagRepository(this.db).resolveIds(workspaceId, input.tagIds);
         await repo.replaceTags(publicId, workspaceId, tagIds);
+      }
+      if (input.channelIds !== undefined) {
+        const channelIds = await new NotificationChannelRepository(this.db).resolveInternalIds(
+          workspaceId,
+          input.channelIds,
+        );
+        await repo.replaceChannels(publicId, workspaceId, channelIds);
       }
       return monitor;
     });

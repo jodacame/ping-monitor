@@ -51,6 +51,7 @@ export function MonitorForm({
   const [newGroup, setNewGroup] = useState('');
   const [tagIds, setTagIds] = useState<string[]>(monitor?.tags?.map((t) => t.id) ?? []);
   const [newTag, setNewTag] = useState('');
+  const [channelIds, setChannelIds] = useState<string[]>(monitor?.channelIds ?? []);
   const [assertions, setAssertions] = useState<AssertionGroup | null>(
     (monitor?.config?.assertions as AssertionGroup | undefined) ?? null,
   );
@@ -90,6 +91,13 @@ export function MonitorForm({
   const toggleTag = (id: string): void =>
     setTagIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
+  const channelsQuery = useQuery({
+    queryKey: ['channels', workspaceId],
+    queryFn: () => api.listChannels(workspaceId),
+  });
+  const toggleChannel = (id: string): void =>
+    setChannelIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+
   const save = useMutation({
     mutationFn: () => {
       let config: Record<string, unknown> | undefined;
@@ -116,6 +124,7 @@ export function MonitorForm({
         failureThreshold: Number(failureThreshold),
         groupId,
         tagIds,
+        channelIds,
         ...(regionIds.length ? { regionIds } : {}),
         ...(config !== undefined ? { config } : {}),
       };
@@ -302,6 +311,40 @@ export function MonitorForm({
             </Button>
           </div>
         </div>
+      </Field>
+
+      <Field
+        label="Alerts"
+        hint="Choose which channels get notified when this monitor changes state."
+      >
+        {channelsQuery.data && channelsQuery.data.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {channelsQuery.data.map((c) => {
+              const on = channelIds.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => toggleChannel(c.id)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                    on
+                      ? 'border-primary/30 bg-primary/10 text-primary'
+                      : 'border-border text-muted hover:text-fg',
+                  )}
+                >
+                  {on && <Check size={13} />}
+                  {c.name}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-muted">
+            No alert channels yet. Add one under <span className="text-fg">Alerts</span> to get
+            notified.
+          </p>
+        )}
       </Field>
 
       <div className="rounded-xl border border-border">

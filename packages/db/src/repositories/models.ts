@@ -62,6 +62,8 @@ export interface MonitorRecord {
   readonly groupId: string | null;
   readonly groupName: string | null;
   readonly tags: TagRecord[];
+  /** Public ids of the notification channels this monitor alerts to. */
+  readonly channelIds: string[];
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }

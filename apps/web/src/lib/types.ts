@@ -53,6 +53,7 @@ export interface Monitor {
   groupId?: string | null;
   groupName?: string | null;
   tags?: Tag[];
+  channelIds?: string[];
   /** 24h uptime ratio [0,1] (list view enrichment). */
   uptime24h?: number | null;
   /** Recent hourly up-ratios, oldest→newest (null = no data). */
@@ -201,4 +202,5 @@ export interface CreateMonitorInput {
   config?: Record<string, unknown>;
   groupId?: string | null;
   tagIds?: string[];
+  channelIds?: string[];
 }

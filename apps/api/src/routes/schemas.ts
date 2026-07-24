@@ -44,6 +44,7 @@ export const createMonitorSchema = z.object({
   regionIds: z.array(z.number().int().positive()).max(50).default([]),
   groupId: z.string().nullish(),
   tagIds: z.array(z.string()).max(50).optional(),
+  channelIds: z.array(z.string()).max(50).optional(),
 });
 
 export const updateMonitorSchema = z
@@ -59,6 +60,7 @@ export const updateMonitorSchema = z
     regionIds: z.array(z.number().int().positive()).max(50),
     groupId: z.string().nullable(),
     tagIds: z.array(z.string()).max(50),
+    channelIds: z.array(z.string()).max(50),
   })
   .partial()
   .refine((obj) => Object.keys(obj).length > 0, { message: 'No fields to update' });

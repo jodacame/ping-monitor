@@ -144,6 +144,30 @@ export class NotificationChannelRepository {
     return (res.rowCount ?? 0) > 0;
   }
 
+  /** Resolve channel public ids to internal ids within a workspace (order preserved). */
+  async resolveInternalIds(workspaceId: string, publicIds: readonly string[]): Promise<string[]> {
+    if (publicIds.length === 0) return [];
+    const res = await this.db.query<{ id: string; public_id: string }>(
+      'SELECT id, public_id FROM notification_channels WHERE workspace_id = $1 AND public_id = ANY($2::text[])',
+      [workspaceId, publicIds],
+    );
+    const byPublic = new Map(res.rows.map((r) => [r.public_id, r.id]));
+    return publicIds.map((p) => byPublic.get(p)).filter((v): v is string => Boolean(v));
+  }
+
+  /** Enabled channels linked to a specific monitor (per-monitor notifier path). */
+  async listEnabledForMonitorPublicId(monitorPublicId: string): Promise<DispatchableChannel[]> {
+    const res = await this.db.query<{ id: string; type: string; name: string; config: Record<string, unknown> }>(
+      `SELECT c.id, c.type, c.name, c.config
+       FROM monitor_notifications mn
+       JOIN notification_channels c ON c.id = mn.channel_id
+       JOIN monitors m ON m.id = mn.monitor_id
+       WHERE m.public_id = $1 AND c.enabled`,
+      [monitorPublicId],
+    );
+    return res.rows;
+  }
+
   /** Enabled channels for a workspace resolved by its public id (notifier path). */
   async listEnabledByWorkspacePublicId(workspacePublicId: string): Promise<DispatchableChannel[]> {
     const res = await this.db.query<{ id: string; type: string; name: string; config: Record<string, unknown> }>(

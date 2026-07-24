@@ -344,7 +344,9 @@ export function ChannelManager({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted">Where we notify you when a monitor changes state.</p>
+        <p className="text-sm text-muted">
+          Create channels here, then pick which ones each monitor uses.
+        </p>
         <Button leadingIcon={<Plus size={16} />} onClick={() => navigate('/alerts/new')}>
           Add channel
         </Button>

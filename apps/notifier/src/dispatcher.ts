@@ -27,7 +27,8 @@ export class NotificationDispatcher {
     if (!shouldNotify(event.from, event.to)) return;
 
     const repo = new NotificationChannelRepository(this.db);
-    const channels = await repo.listEnabledByWorkspacePublicId(event.workspaceId);
+    // Alerts are per-monitor: only channels linked to this monitor are notified.
+    const channels = await repo.listEnabledForMonitorPublicId(event.monitorId);
     if (channels.length === 0) return;
 
     const notification = eventToNotification(event);

@@ -29,6 +29,7 @@ interface MonitorRow {
   group_public_id: string | null;
   group_name: string | null;
   tags: TagRecord[];
+  channel_ids: string[];
   created_at: Date;
   updated_at: Date;
 }
@@ -48,7 +49,12 @@ const SELECT_JOINED = `
                            ORDER BY t.name)
            FROM monitor_tags mt JOIN tags t ON t.id = mt.tag_id
            WHERE mt.monitor_id = m.id
-         ), '[]'::json) AS tags
+         ), '[]'::json) AS tags,
+         COALESCE((
+           SELECT json_agg(c.public_id)
+           FROM monitor_notifications mn JOIN notification_channels c ON c.id = mn.channel_id
+           WHERE mn.monitor_id = m.id
+         ), '[]'::json) AS channel_ids
   FROM monitors m
   LEFT JOIN monitor_groups g ON g.id = m.group_id`;
 
@@ -74,6 +80,7 @@ function toRecord(row: MonitorRow): MonitorRecord {
     groupId: row.group_public_id,
     groupName: row.group_name,
     tags: row.tags ?? [],
+    channelIds: row.channel_ids ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -199,6 +206,27 @@ export class MonitorRepository {
       `INSERT INTO monitor_tags (monitor_id, tag_id)
        SELECT $1, t FROM unnest($2::bigint[]) AS t ON CONFLICT DO NOTHING`,
       [monitorId, tagIds],
+    );
+  }
+
+  /** Replace the notification channels a monitor alerts to (internal ids). */
+  async replaceChannels(
+    publicId: string,
+    workspaceId: string,
+    channelIds: readonly string[],
+  ): Promise<void> {
+    const res = await this.db.query<{ id: string }>(
+      'SELECT id FROM monitors WHERE public_id = $1 AND workspace_id = $2',
+      [publicId, workspaceId],
+    );
+    const monitorId = res.rows[0]?.id;
+    if (!monitorId) return;
+    await this.db.query('DELETE FROM monitor_notifications WHERE monitor_id = $1', [monitorId]);
+    if (channelIds.length === 0) return;
+    await this.db.query(
+      `INSERT INTO monitor_notifications (monitor_id, channel_id)
+       SELECT $1, c FROM unnest($2::bigint[]) AS c ON CONFLICT DO NOTHING`,
+      [monitorId, channelIds],
     );
   }
 
