@@ -73,6 +73,105 @@ min/max merge across flushes via `LEAST`/`GREATEST` (which ignore NULLs).
 cleanly onto `pg_partman`, Citus, or a dedicated columnar store for
 `check_results` — the table DDL does not change.
 
+## Multi-region deployment
+
+Ping Monitor can probe your targets from several locations (e.g. Europe, US, Asia)
+and decide the overall status by **quorum**. The design is deliberately simple:
+
+- **The core stack is central and single-homed** — PostgreSQL, Redis, the API,
+  the scheduler and the notifier all run in one place.
+- **Only workers are distributed.** A "region" is a label plus a dedicated Redis
+  Stream. A worker is pinned to one region via `PROBE_REGION`, connects back to
+  the central Postgres and Redis, and consumes only that region's stream
+  (`checks:pending:<regionId>`). The central scheduler routes each due check to the
+  right region's stream, so a worker in Frankfurt runs the checks assigned to
+  `eu-west`, a worker in Virginia runs `us-east`, and so on.
+
+```
+                    [ Postgres + Redis + API + Scheduler + Notifier ]   (central core)
+                         ▲                 │                 ▲
+              results +  │        checks:pending:2 / :3      │  results +
+              heartbeat  │                 │                 │  heartbeat
+                    ┌────┴─────┐     ┌──────┴─────┐    ┌──────┴─────┐
+                    │ worker   │     │ worker(s)  │    │ worker(s)  │
+                    │ local(1) │     │ eu-west(2) │    │ us-east(3) │
+                    └──────────┘     └────────────┘    └────────────┘
+                     data center        VPS in EU         VPS in US
+```
+
+### 1. Register the region
+
+Regions live in `probe_regions` (a compact `SMALLINT` id referenced by the hot
+tables). The schema ships with a default `(1, 'local')`. Add one row per region —
+today this is a SQL insert (there is no region-admin API yet):
+
+```sql
+INSERT INTO probe_regions (id, code, name, enabled) VALUES
+  (2, 'eu-west', 'Europe (Frankfurt)', true),
+  (3, 'us-east', 'US East (Virginia)', true);
+```
+
+Pick a stable, unique `id` and a `code` you will use as `PROBE_REGION`. Set
+`enabled = false` to temporarily park a region (its workers refuse to start).
+
+### 2. Assign monitors to the region
+
+A monitor is only checked from the regions it is assigned to. When creating or
+editing a monitor, include the region ids in `regionIds` (this materialises one
+`monitor_assignments` row per region). Set the monitor's **quorum** to how many
+regions must agree it is down before the overall status flips — e.g. `quorum = 2`
+across 3 regions tolerates one region's local network blip or a regional outage on
+the probe side.
+
+### 3. Deploy a worker in that region
+
+Run a worker on a host **located in** that region, pointing at the central Postgres
+and Redis. The only region-specific setting is `PROBE_REGION`:
+
+```bash
+docker run -d --name worker-eu --restart unless-stopped \
+  -e PROBE_REGION=eu-west \
+  -e DATABASE_URL="postgresql://ping_monitor:***@core-host:5432/ping_monitor" \
+  -e REDIS_URL="redis://core-host:6379" \
+  -e JWT_SECRET="<same as core>" \
+  ping-monitor-worker
+```
+
+Or as a Compose file on the remote host (workers are the only service that runs
+there):
+
+```yaml
+services:
+  worker-eu:
+    image: ping-monitor-worker
+    command: ['pnpm', '--filter', '@ping/worker', 'run', 'start']
+    environment:
+      PROBE_REGION: eu-west
+      DATABASE_URL: postgresql://ping_monitor:***@core-host:5432/ping_monitor
+      REDIS_URL: redis://core-host:6379
+    restart: unless-stopped
+```
+
+On boot the worker resolves its region (`Unknown probe region "…"` if it is not in
+`probe_regions`, `disabled` if parked) and logs `worker online { region: 'eu-west' }`.
+
+### Scaling and operating regions
+
+- **Scale a region horizontally**: run several workers with the same
+  `PROBE_REGION`. They share the `workers` consumer group and load-balance that
+  region's stream via `XREADGROUP` — no extra configuration. Tune throughput per
+  worker with `WORKER_CONCURRENCY`.
+- **Observe liveness**: every worker upserts a heartbeat into `probes`
+  (`region_id`, `instance = hostname:pid`, `version`, `last_heartbeat_at`). Query
+  it to see which workers are alive where.
+- **Networking & security**: remote workers must reach the central Redis and
+  Postgres, which **must not be exposed to the public internet** (see
+  [SECURITY](../SECURITY.md)). Connect regions over a **private network, VPN, or
+  TLS tunnel**; restrict the database and Redis to those peers.
+- **Latency semantics**: `response_ms` is measured from the probing worker, so the
+  same monitor legitimately reports different latencies per region — that is the
+  point. Per-region breakdown in the UI is on the roadmap.
+
 ## Security notes
 
 - Passwords hashed with scrypt (memory-hard, no native dependency).

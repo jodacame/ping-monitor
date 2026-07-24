@@ -82,7 +82,8 @@ docker compose up -d --scale worker=3
 
 The bundle runs its own PostgreSQL and Redis. For **multi-region** monitoring,
 deploy extra `worker` containers on hosts in other regions (each with a distinct
-`PROBE_REGION`), all pointing at the same Postgres and Redis.
+`PROBE_REGION`), all pointing at the same Postgres and Redis — see the
+[multi-region deployment guide](docs/ARCHITECTURE.md#multi-region-deployment).
 
 ## 🧭 Architecture
 
