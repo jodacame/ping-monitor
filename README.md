@@ -1,101 +1,118 @@
-# Ping Monitor
+<h1 align="center">🛰️ Ping Monitor</h1>
 
-Self-hosted, horizontally-scalable **uptime monitoring** — HTTP/HTTPS, TCP and ICMP
-checks with global probes, retries, incident history, statistics and a beautiful
-dashboard. Built to grow from one site to millions on plain PostgreSQL, Redis and
-Node.js.
+<p align="center">
+  <b>Self-hosted, open-source uptime monitoring.</b><br/>
+  Monitor websites, APIs and servers with HTTP / TCP / ICMP checks, SSL & JSON
+  health assertions, multi-channel alerts, public status pages, and a real-time API —
+  built to scale from one site to millions on plain PostgreSQL, Redis and Node.js.
+</p>
 
-> Status: **early foundation.** The end-to-end monitoring pipeline (schedule →
-> check → persist → roll up → detect incidents → emit events) and the dashboard
-> are working. Alerting connectors, TCP/ICMP executors, SSL monitoring, status
-> pages and CSV export are on the [roadmap](#roadmap).
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-3fb950.svg"></a>
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white">
+  <img alt="Node" src="https://img.shields.io/badge/Node-26-339933?logo=nodedotjs&logoColor=white">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-native%20partitioning-4169e1?logo=postgresql&logoColor=white">
+  <img alt="React" src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-compose-2496ed?logo=docker&logoColor=white">
+  <img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-6366f1.svg">
+</p>
 
-## Highlights
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="Ping Monitor dashboard — monitors grouped, live status, uptime and latency" width="900">
+</p>
 
-- **Global monitoring.** Deploy workers in multiple regions; each check is
-  scheduled per `(monitor, region)` and results are stored per region. A
-  monitor's overall status is decided by **quorum** (down only when *K* regions
-  agree), so a single bad vantage point never triggers a false alarm.
-- **Compact, scalable storage — no extensions.** The hot `check_results` table is
-  **range-partitioned by day** (native PostgreSQL, no `pg_partman`/TimescaleDB
-  required), pruned by dropping old partitions. Long-term history lives in tiny
-  pre-aggregated hourly/daily **rollups** plus an `incidents` table.
-- **Event-driven & horizontally scalable.** A scheduler enqueues due checks onto
-  per-region **Redis Streams**; any number of stateless **workers** consume them.
-  Status changes are published on a domain **event bus** for independent
-  consumers (alerting, webhooks, analytics).
-- **Anti-false-positive retries.** A pure, unit-tested state machine flips a
-  monitor only after N consecutive failures, and recovers after M successes.
-- **Developer-friendly.** A REST API and a real-time WebSocket for status-change
-  events, both authenticated with workspace-scoped API keys. See
-  [`docs/API.md`](docs/API.md).
-- **A dashboard people actually enjoy.** React + Vite, light/dark, fully
-  responsive (mobile-first), dedicated pages with real URLs.
+> A modern, open-source alternative for **website monitoring**, **server monitoring**
+> and **status pages** — think Uptime Kuma / Better Uptime, self-hosted and yours.
 
-## Architecture
+---
 
-```
-                        ┌───────────────┐
-      REST / SPA  ──────▶     API       │  auth · workspaces · monitors · stats
-                        └──────┬────────┘
-                               │ Postgres
-      ┌───────────────┐        ▼
-      │   Scheduler   │──▶ claims due (monitor, region) assignments
-      └──────┬────────┘        │  (FOR UPDATE SKIP LOCKED)
-             │ enqueue         ▼
-        Redis Stream  ┌──────────────────┐   Postgres
-   checks:pending:R ──▶      Worker(s)   │──▶ check_results (partitioned)
-                        │  region = R    │──▶ hourly / daily rollups
-                        └──────┬─────────┘──▶ incidents
-                               │ publish
-                        events:monitor ─────▶ (notifier · webhooks · …)
-```
+## ✨ Features
 
-Monorepo layout:
+- **Monitor types** — **HTTP/HTTPS**, **TCP** port, and **ICMP ping**.
+- **Deep health checks** — assert on status code, response time, headers, plain body,
+  or a **JSON path** value, combined with **AND/OR** groups. Optional **SSL
+  certificate-expiry** alerts and body keyword checks.
+- **Anti-false-positive** — a monitor flips only after N consecutive failures
+  (per region), and recovers after M successes.
+- **Global monitoring** — deploy probe workers in multiple regions; overall status
+  is decided by **quorum** (down only when *K* regions agree).
+- **Alerts, per monitor** — pick which channels each monitor uses: **Email (SMTP)**,
+  **Telegram**, or a **generic Webhook** (custom method, headers, auth, and a
+  `{{variable}}` body template for any API).
+- **Public status pages** — publish a branded page at `/status/:slug` (no auth).
+- **Groups, tags & filters** — organise and slice your monitors.
+- **Statistics & charts** — uptime, latency and incident history over 24h / 7d / 30d,
+  plus **CSV export**.
+- **Developer API** — a **REST API** and a **real-time WebSocket** for status-change
+  events, secured with scoped, expiring, IP-restricted **API keys**, rate limiting
+  and security headers. See [`docs/API.md`](docs/API.md).
+- **Beautiful UI** — React + Vite, light/dark, fully responsive, dedicated pages
+  with real URLs.
 
-```
-packages/
-  core           domain kernel: types, retry state machine, events, errors (pure)
-  config         typed env loaders + structured logger (pino)
-  db             schema (SQL migrations), compact codecs, repositories
-  queue          Redis Streams: per-region check queue + event bus
-  checks         probe executors (Strategy): HTTP today, TCP/ICMP next
-apps/
-  api            Fastify REST API
-  scheduler      enqueues due checks; maintains partitions & retention
-  worker         executes checks, persists results, evaluates status, emits events
-  web            React + Vite dashboard
-```
+## 📸 Screenshots
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the data model and scaling
-notes.
+|  |  |
+|--|--|
+| **Monitor detail** — charts, checks, incidents | **Public status page** |
+| <img src="docs/images/monitor-detail.png" alt="Monitor detail with latency chart"> | <img src="docs/images/status-page.png" alt="Public status page"> |
+| **Developer API & keys** | **Light theme** |
+| <img src="docs/images/developers.png" alt="Developer API keys and docs"> | <img src="docs/images/dashboard-light.png" alt="Dashboard light theme"> |
 
-## Quick start (Docker)
+<p align="center"><img src="docs/images/mobile.png" alt="Mobile dashboard" width="300"></p>
+
+## 🚀 Quick start (Docker)
 
 Requirements: Docker + Docker Compose.
 
 ```bash
+git clone https://github.com/jodacame/ping-monitor.git
+cd ping-monitor
 cp .env.example .env
-# edit .env: set a strong JWT_SECRET (openssl rand -base64 48)
+# edit .env: set a strong JWT_SECRET  →  openssl rand -base64 48
 
 docker compose up -d --build
-# dashboard:  http://localhost:8080
+# open the dashboard:  http://localhost:8080
 ```
 
-Scale probes horizontally:
+Scale the probe workers horizontally:
 
 ```bash
 docker compose up -d --scale worker=3
 ```
 
-The bundle runs its own PostgreSQL and Redis. To run multi-region, deploy extra
-`worker` containers on hosts in other regions with a distinct `PROBE_REGION`
-(after adding the region to the `probe_regions` table), all pointing at the same
-Postgres and Redis.
+The bundle runs its own PostgreSQL and Redis. For **multi-region** monitoring,
+deploy extra `worker` containers on hosts in other regions (each with a distinct
+`PROBE_REGION`), all pointing at the same Postgres and Redis.
 
-## Development
+## 🧭 Architecture
 
-The stack is TypeScript end to end and runs on Node 26 with **pnpm**.
+```
+                        ┌───────────────┐
+      REST / SPA / WS ──▶     API       │  auth · monitors · stats · API keys · WS
+                        └──────┬────────┘
+                               │ Postgres
+      ┌───────────────┐        ▼
+      │   Scheduler   │──▶ claims due (monitor, region) checks  (FOR UPDATE SKIP LOCKED)
+      └──────┬────────┘        │
+        Redis Stream  ┌────────▼─────────┐   Postgres
+   checks:pending:R ──▶     Worker(s)    │──▶ check_results (day-partitioned)
+                        │  region = R    │──▶ hourly / daily rollups · incidents
+                        └──────┬─────────┘──▶ publish
+                               │ events:monitor ─▶ Notifier (alerts) · WebSocket (live)
+```
+
+A pnpm monorepo, TypeScript end-to-end, SOLID and event-driven. The hot
+`check_results` table is **range-partitioned by day** (vanilla PostgreSQL, no
+extensions) with pre-aggregated rollups. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+**Packages:** `core` (domain + retry state machine), `config`, `db`, `queue`
+(Redis Streams), `checks`, `notifications`.
+**Apps:** `api`, `scheduler`, `worker`, `notifier`, `web`.
+
+## 🛠️ Development
+
+Runs on Node 26 with **pnpm**.
 
 ```bash
 pnpm install
@@ -105,38 +122,53 @@ pnpm seed                             # optional: example monitors (HTTP/TCP/ICM
 pnpm dev:api                          # API      (:3000)
 pnpm dev:scheduler                    # scheduler
 pnpm dev:worker                       # worker
-pnpm dev:web                          # dashboard (:5173, proxies /api)
+pnpm dev:notifier                     # alert dispatcher
+pnpm dev:web                          # dashboard (:5173)
 ```
 
-Quality gates:
+Quality gates: `pnpm typecheck` · `pnpm test` (Vitest) · `pnpm lint`.
+
+## 🔌 API & real-time events
+
+Authenticate the REST API and WebSocket with a workspace-scoped API key created
+under **Developers** in the app.
 
 ```bash
-pnpm typecheck    # strict TS across the whole repo
-pnpm test         # vitest
-pnpm lint         # eslint (typed)
+curl https://your-host/api/workspaces/WORKSPACE_ID/monitors \
+  -H "Authorization: Bearer pk_xxx"
 ```
 
-Configuration is entirely via environment variables — see
-[`.env.example`](.env.example) for every option (pool sizes, intervals, worker
-concurrency, retention windows, …).
+```js
+const ws = new WebSocket("wss://your-host/api/ws", ["pk_xxx"]);
+ws.onmessage = (e) => console.log(JSON.parse(e.data)); // monitor.status_changed
+```
 
-## Roadmap
+Full reference: [`docs/API.md`](docs/API.md).
 
-- [x] Alerting connectors (SMTP, Telegram, generic webhook) consuming the event bus
-- [x] HTTP health assertions (status / body / JSON path / header / latency, AND/OR)
-- [x] One-level monitor groups (folders)
-- [x] TCP and ICMP check executors
-- [x] SSL certificate expiry monitoring
-- [x] Public status pages
-- [x] Tags & filtering
-- [x] CSV export of check history
+## 🗺️ Roadmap
+
+- [x] HTTP / TCP / ICMP monitors · SSL expiry · health assertions (AND/OR)
+- [x] Alerts (Email, Telegram, Webhook), per monitor · groups · tags · CSV export
+- [x] Public status pages · developer API keys · real-time WebSocket
 - [ ] Per-region latency/uptime breakdown in the UI
-- [ ] Multi-region worker deployment guide
+- [ ] Two-factor auth · audit log · ephemeral WebSocket tickets
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-## License
+## 📄 License
 
-[MIT](LICENSE) © jodacame and Ping Monitor contributors.
+[MIT](LICENSE) © [jodacame](https://github.com/jodacame) and Ping Monitor contributors.
+
+---
+
+<p align="center">
+  🤖🧑‍🚀 <b>Friendly disclaimer:</b> this was built by an AI and a human keeping an eye on
+  it (mostly saying "yes, ship it"). It started as a personal project, but it's free
+  and open — so if it saves your bacon at 3&nbsp;a.m. when prod goes down, it's yours.
+  No warranties, just good vibes and a decent test suite. Use it, fork it, break it,
+  make it better. 🛰️💚
+</p>
+
+<p align="center"><sub>Keywords: uptime monitoring · status page · website monitoring · server monitoring · HTTP/TCP/ICMP/ping monitor · SSL monitoring · self-hosted · open source · Docker · PostgreSQL · TypeScript · React · Uptime Kuma alternative</sub></p>
