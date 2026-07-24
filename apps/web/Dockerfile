@@ -5,7 +5,8 @@
 FROM node:26-slim AS build
 
 WORKDIR /app
-RUN corepack enable
+# Install the pinned pnpm directly (node:*-slim no longer bundles corepack).
+RUN npm install -g pnpm@11.8.0
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages ./packages

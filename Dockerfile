@@ -14,8 +14,8 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends iputils-ping \
   && rm -rf /var/lib/apt/lists/*
 
-# pnpm via corepack.
-RUN corepack enable
+# Install the pinned pnpm directly (node:*-slim no longer bundles corepack).
+RUN npm install -g pnpm@11.8.0
 
 # Install dependencies (all workspaces). Copy manifests first for layer caching.
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
