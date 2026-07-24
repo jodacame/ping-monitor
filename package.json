@@ -20,7 +20,8 @@
     "dev:worker": "pnpm --filter @ping/worker run dev",
     "dev:web": "pnpm --filter @ping/web run dev",
     "migrate": "pnpm --filter @ping/db run migrate",
-    "seed": "pnpm --filter @ping/api run seed"
+    "seed": "pnpm --filter @ping/api run seed",
+    "reset-password": "pnpm --filter @ping/api run reset-password"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

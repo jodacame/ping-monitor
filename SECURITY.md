@@ -48,6 +48,9 @@ before exposing it to the internet:
 - Keep self-service registration closed (`ALLOW_REGISTRATION=false`, the default).
   The first account is always allowed so you can complete setup; open registration
   only if you deliberately want a public sign-up.
+- If an operator is locked out, reset a password from the host (no email flow):
+  `docker compose run --rm api pnpm --filter @ping/api run reset-password <email>`.
+  It revokes that user's active sessions.
 - Serve the API and dashboard over HTTPS/TLS (terminate at your proxy).
 - Restrict database and Redis to the internal network; never expose them publicly.
 - Use scoped, expiring, IP-restricted **API keys** for automation, and prefer

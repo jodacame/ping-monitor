@@ -129,6 +129,26 @@ pnpm dev:web                          # dashboard (:5173)
 
 Quality gates: `pnpm typecheck` · `pnpm test` (Vitest) · `pnpm lint`.
 
+## 🔑 Accounts & recovery
+
+- **First account (onboarding):** a fresh instance has no users. Open the app and
+  the setup screen lets you create the initial **owner** account — always allowed,
+  even with registration closed.
+- **Registration:** self-service sign-up is **off by default**
+  (`ALLOW_REGISTRATION=false`); only the first account is allowed. Set
+  `ALLOW_REGISTRATION=true` to open public sign-up.
+- **Forgot a password?** There is no email reset yet; recover from the server with
+  the built-in admin CLI (no SMTP needed). It generates a strong password when you
+  omit one, and signs out all of that user's sessions:
+
+  ```bash
+  # prints a freshly generated password
+  docker compose run --rm api pnpm --filter @ping/api run reset-password you@example.com
+
+  # or set a specific one (min 8 chars)
+  docker compose run --rm api pnpm --filter @ping/api run reset-password you@example.com 'NewPass123'
+  ```
+
 ## 🔌 API & real-time events
 
 Authenticate the REST API and WebSocket with a workspace-scoped API key created

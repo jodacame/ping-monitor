@@ -81,4 +81,13 @@ export class UserRepository {
     const res = await this.db.query('SELECT 1 FROM users LIMIT 1');
     return res.rowCount === 1;
   }
+
+  /** Replace a user's password hash. Returns false if no such user. */
+  async updatePassword(id: string, passwordHash: string): Promise<boolean> {
+    const res = await this.db.query('UPDATE users SET password_hash = $2 WHERE id = $1', [
+      id,
+      passwordHash,
+    ]);
+    return res.rowCount === 1;
+  }
 }
