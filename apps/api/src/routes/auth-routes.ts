@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppContext } from '../context.js';
 import type { AuthGuards } from '../plugins/auth-guards.js';
-import { loginSchema, refreshSchema, registerSchema } from './schemas.js';
+import { changePasswordSchema, loginSchema, refreshSchema, registerSchema } from './schemas.js';
 
 /** Authentication endpoints: register, login, refresh, logout, me. */
 export function registerAuthRoutes(
@@ -43,4 +43,18 @@ export function registerAuthRoutes(
   app.get('/auth/me', { preHandler: [guards.authenticate] }, async (request) => {
     return ctx.auth.me(request.authUser!.userId);
   });
+
+  app.post(
+    '/auth/change-password',
+    { preHandler: [guards.authenticate], ...authLimit },
+    async (request) => {
+      const { currentPassword, newPassword } = changePasswordSchema.parse(request.body);
+      return ctx.auth.changePassword(
+        request.authUser!.userId,
+        currentPassword,
+        newPassword,
+        request.headers['user-agent'] ?? null,
+      );
+    },
+  );
 }

@@ -18,6 +18,11 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters').max(200),
+});
+
 export const createWorkspaceSchema = z.object({
   name: z.string().trim().min(1).max(80),
 });

@@ -61,6 +61,17 @@ export class UserRepository {
     return row ? toRecord(row) : null;
   }
 
+  /** Like findById but includes the password hash (for password verification). */
+  async findByIdWithSecret(id: string): Promise<UserWithSecret | null> {
+    const res = await this.db.query<UserRow>(
+      `SELECT id, public_id, email, name, password_hash, created_at
+       FROM users WHERE id = $1`,
+      [id],
+    );
+    const row = res.rows[0];
+    return row ? { ...toRecord(row), passwordHash: row.password_hash } : null;
+  }
+
   async findByPublicId(publicId: string): Promise<UserRecord | null> {
     const res = await this.db.query<UserRow>(
       `SELECT id, public_id, email, name, password_hash, created_at

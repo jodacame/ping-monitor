@@ -135,6 +135,32 @@ export class AuthService {
     );
   }
 
+  /**
+   * Change the signed-in user's password. Verifies the current one, then revokes
+   * every existing session (defence in depth) and issues a fresh one so the
+   * caller stays logged in while any other device is signed out.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    userAgent: string | null,
+  ): Promise<AuthResult> {
+    const user = await new UserRepository(this.db).findByIdWithSecret(userId);
+    if (!user) throw new UnauthorizedError('Account no longer exists');
+
+    const ok = await verifyPassword(currentPassword, user.passwordHash);
+    if (!ok) throw new UnauthorizedError('Current password is incorrect');
+
+    const passwordHash = await hashPassword(newPassword);
+    await this.db.transaction(async (tx) => {
+      await new UserRepository(tx).updatePassword(user.id, passwordHash);
+      await new RefreshTokenRepository(tx).revokeAllForUser(user.id);
+    });
+
+    return this.issueSession(user, userAgent);
+  }
+
   /** Create a new workspace owned by the given user. */
   async createWorkspace(userId: string, name: string): Promise<WorkspaceSummary> {
     const trimmed = name.trim() || 'New Workspace';

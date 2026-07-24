@@ -180,6 +180,15 @@ export const api = {
     return request('/auth/me');
   },
 
+  /** Change the current user's password; rotates to the returned fresh session. */
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const result = await request<AuthResult>('/auth/change-password', {
+      method: 'POST',
+      body: { currentPassword, newPassword },
+    });
+    storeTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken });
+  },
+
   /** Public: whether the instance needs first-account setup / allows registration. */
   registrationStatus(): Promise<{ needsSetup: boolean; registrationOpen: boolean }> {
     return request('/auth/registration', { auth: false });
