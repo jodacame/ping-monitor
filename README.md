@@ -163,7 +163,7 @@ Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
-## 🤖 Build record — human + AI
+## Build record — human + AI
 
 This project is kept as a **transparent record of what it looks like to build a
 production-grade tool with AI in 2026**: a developer directing and reviewing, and
@@ -173,14 +173,14 @@ working. They come straight from the Claude Code session report (API list pricin
 not marketing estimates.
 
 <table>
-  <tr><td><b>🧠 Model</b></td><td>Claude <b>Opus 4.8</b> (1M context) — Anthropic</td></tr>
-  <tr><td><b>👤 Direction & review</b></td><td>Human-in-the-loop (design, decisions, QA, sign-off)</td></tr>
-  <tr><td><b>📅 Session</b></td><td>July 2026</td></tr>
-  <tr><td><b>⏱️ Time</b></td><td>~4h 11m wall · 3h 11m API</td></tr>
-  <tr><td><b>📝 Code changes</b></td><td>+16,940 / −718 lines</td></tr>
-  <tr><td><b>🔤 Tokens</b></td><td>~809K generated · ~365M processed (mostly cached context)</td></tr>
-  <tr><td><b>💵 AI cost</b></td><td><b>$212.64 USD</b> (Anthropic API list pricing)</td></tr>
-  <tr><td><b>📊 Cost / net line</b></td><td>≈ $0.013</td></tr>
+  <tr><td><b>&gt; Model</b></td><td>Claude <b>Opus 4.8</b> (1M context) — Anthropic</td></tr>
+  <tr><td><b>&gt; Direction &amp; review</b></td><td>Human-in-the-loop (design, decisions, QA, sign-off)</td></tr>
+  <tr><td><b>&gt; Session</b></td><td>July 2026</td></tr>
+  <tr><td><b>&gt; Time</b></td><td>~4h 11m wall · 3h 11m API</td></tr>
+  <tr><td><b>&gt; Code changes</b></td><td>+16,940 / −718 lines</td></tr>
+  <tr><td><b>&gt; Tokens</b></td><td>~809K generated · ~365M processed (mostly cached context)</td></tr>
+  <tr><td><b>&gt; AI cost</b></td><td><b>$212.64 USD</b> (Anthropic API list pricing)</td></tr>
+  <tr><td><b>&gt; Cost / net line</b></td><td>≈ $0.013</td></tr>
 </table>
 
 > A full monorepo — API, scheduler, worker, notifier and web dashboard, plus
