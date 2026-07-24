@@ -79,7 +79,8 @@ Requirements: Docker + Docker Compose.
 git clone https://github.com/jodacame/ping-monitor.git
 cd ping-monitor
 cp .env.example .env
-# edit .env: set a strong JWT_SECRET  →  openssl rand -base64 48
+# edit .env: set a strong JWT_SECRET (openssl rand -base64 48)
+# and a strong POSTGRES_PASSWORD
 
 docker compose up -d --build
 # open the dashboard:  http://localhost:8080
