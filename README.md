@@ -120,12 +120,13 @@ concurrency, retention windows, …).
 - [x] Alerting connectors (SMTP, Telegram, generic webhook) consuming the event bus
 - [x] HTTP health assertions (status / body / JSON path / header / latency, AND/OR)
 - [x] One-level monitor groups (folders)
-- [ ] TCP and ICMP check executors
-- [ ] SSL certificate expiry monitoring
-- [ ] Public status pages
-- [ ] Tags & advanced filtering UI
-- [ ] CSV export of history and statistics
+- [x] TCP and ICMP check executors
+- [x] SSL certificate expiry monitoring
+- [x] Public status pages
+- [x] Tags & filtering
+- [x] CSV export of check history
 - [ ] Per-region latency/uptime breakdown in the UI
+- [ ] Multi-region worker deployment guide
 
 ## Contributing
 

@@ -61,8 +61,15 @@ export interface MonitorRecord {
   /** Public id of the group this monitor belongs to, or null. */
   readonly groupId: string | null;
   readonly groupName: string | null;
+  readonly tags: TagRecord[];
   readonly createdAt: Date;
   readonly updatedAt: Date;
+}
+
+export interface TagRecord {
+  readonly id: string;
+  readonly name: string;
+  readonly color: string;
 }
 
 export interface MonitorGroupRecord {

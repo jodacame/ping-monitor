@@ -49,7 +49,18 @@ function MonitorRow({
             {type.label}
           </Badge>
         </div>
-        <div className="truncate text-xs text-muted">{prettyTarget(monitor.target)}</div>
+        <div className="flex items-center gap-2">
+          <span className="truncate text-xs text-muted">{prettyTarget(monitor.target)}</span>
+          {monitor.tags?.map((t) => (
+            <span
+              key={t.id}
+              className="hidden items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium sm:inline-flex"
+              style={{ background: `color-mix(in oklab, ${t.color} 20%, transparent)`, color: t.color }}
+            >
+              {t.name}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Interval */}

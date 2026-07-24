@@ -17,6 +17,7 @@ import {
   IconButton,
   Input,
   SegmentedControl,
+  Select,
   Skeleton,
 } from '../components/ui';
 
@@ -35,6 +36,7 @@ export function DashboardPage() {
 
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string>('all');
+  const [tagFilter, setTagFilter] = useState('');
   const [groupToDelete, setGroupToDelete] = useState<MonitorGroup | null>(null);
 
   const overview = useQuery({
@@ -50,15 +52,21 @@ export function DashboardPage() {
     refetchInterval: 15_000,
   });
   const monitors = useQuery({
-    queryKey: ['monitors', workspaceId, { search, status }],
+    queryKey: ['monitors', workspaceId, { search, status, tagFilter }],
     queryFn: () =>
       api.listMonitors(workspaceId, {
         pageSize: 100,
         ...(search ? { search } : {}),
         ...(status !== 'all' ? { status } : {}),
+        ...(tagFilter ? { tagId: tagFilter } : {}),
       }),
     enabled: Boolean(workspaceId),
     refetchInterval: 15_000,
+  });
+  const tags = useQuery({
+    queryKey: ['tags', workspaceId],
+    queryFn: () => api.listTags(workspaceId),
+    enabled: Boolean(workspaceId),
   });
   const groups = useQuery({
     queryKey: ['groups', workspaceId],
@@ -139,6 +147,20 @@ export function DashboardPage() {
               </div>
               <div className="flex items-center gap-2">
                 <SegmentedControl options={STATUS_FILTERS} value={status} onChange={setStatus} />
+                {tags.data && tags.data.length > 0 && (
+                  <Select
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    className="h-9 w-auto"
+                  >
+                    <option value="">All tags</option>
+                    {tags.data.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </Select>
+                )}
                 <IconButton
                   label="New group"
                   variant="secondary"

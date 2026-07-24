@@ -39,6 +39,7 @@ export const createMonitorSchema = z.object({
   quorum: z.number().int().min(1).max(50).default(1),
   regionIds: z.array(z.number().int().positive()).max(50).default([]),
   groupId: z.string().nullish(),
+  tagIds: z.array(z.string()).max(50).optional(),
 });
 
 export const updateMonitorSchema = z
@@ -53,9 +54,20 @@ export const updateMonitorSchema = z
     quorum: z.number().int().min(1).max(50),
     regionIds: z.array(z.number().int().positive()).max(50),
     groupId: z.string().nullable(),
+    tagIds: z.array(z.string()).max(50),
   })
   .partial()
   .refine((obj) => Object.keys(obj).length > 0, { message: 'No fields to update' });
+
+// --- Tags --------------------------------------------------------------------
+
+export const createTagSchema = z.object({
+  name: z.string().trim().min(1).max(40),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Color must be a hex code')
+    .optional(),
+});
 
 // --- Monitor groups ----------------------------------------------------------
 

@@ -25,6 +25,7 @@ export function monitorToDto(monitor: MonitorRecord | MonitorView): Record<strin
     lastResponseMs: monitor.lastResponseMs,
     groupId: monitor.groupId,
     groupName: monitor.groupName,
+    tags: monitor.tags,
     createdAt: monitor.createdAt,
     updatedAt: monitor.updatedAt,
     ...('regionIds' in monitor ? { regionIds: monitor.regionIds } : {}),

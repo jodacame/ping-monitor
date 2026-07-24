@@ -49,6 +49,8 @@ export function MonitorForm({
   const [groupId, setGroupId] = useState<string | null>(monitor?.groupId ?? null);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [newGroup, setNewGroup] = useState('');
+  const [tagIds, setTagIds] = useState<string[]>(monitor?.tags?.map((t) => t.id) ?? []);
+  const [newTag, setNewTag] = useState('');
   const [assertions, setAssertions] = useState<AssertionGroup | null>(
     (monitor?.config?.assertions as AssertionGroup | undefined) ?? null,
   );
@@ -72,6 +74,21 @@ export function MonitorForm({
       setNewGroup('');
     },
   });
+
+  const tagsQuery = useQuery({
+    queryKey: ['tags', workspaceId],
+    queryFn: () => api.listTags(workspaceId),
+  });
+  const createTag = useMutation({
+    mutationFn: () => api.createTag(workspaceId, newTag.trim()),
+    onSuccess: async (tag) => {
+      await queryClient.invalidateQueries({ queryKey: ['tags', workspaceId] });
+      setTagIds((p) => (p.includes(tag.id) ? p : [...p, tag.id]));
+      setNewTag('');
+    },
+  });
+  const toggleTag = (id: string): void =>
+    setTagIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
   const save = useMutation({
     mutationFn: () => {
@@ -98,6 +115,7 @@ export function MonitorForm({
         timeoutMs: Number(timeoutMs),
         failureThreshold: Number(failureThreshold),
         groupId,
+        tagIds,
         ...(regionIds.length ? { regionIds } : {}),
         ...(config !== undefined ? { config } : {}),
       };
@@ -231,6 +249,59 @@ export function MonitorForm({
             </Button>
           </div>
         )}
+      </Field>
+
+      <Field label="Tags" hint="Group and filter monitors by tag.">
+        <div className="space-y-2">
+          {tagsQuery.data && tagsQuery.data.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {tagsQuery.data.map((t) => {
+                const on = tagIds.includes(t.id);
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => toggleTag(t.id)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                      on ? 'border-transparent text-white' : 'border-border text-muted hover:text-fg',
+                    )}
+                    style={on ? { background: t.color } : undefined}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: on ? '#fff' : t.color }}
+                    />
+                    {t.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Input
+              value={newTag}
+              onChange={(e) => setNewTag(e.target.value)}
+              placeholder="New tag"
+              className="h-9 max-w-40"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newTag.trim()) {
+                  e.preventDefault();
+                  createTag.mutate();
+                }
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => newTag.trim() && createTag.mutate()}
+              loading={createTag.isPending}
+            >
+              Add tag
+            </Button>
+          </div>
+        </div>
       </Field>
 
       <div className="rounded-xl border border-border">

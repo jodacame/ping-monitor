@@ -52,6 +52,7 @@ export interface Monitor {
   regionIds?: number[];
   groupId?: string | null;
   groupName?: string | null;
+  tags?: Tag[];
   /** 24h uptime ratio [0,1] (list view enrichment). */
   uptime24h?: number | null;
   /** Recent hourly up-ratios, oldest→newest (null = no data). */
@@ -64,6 +65,12 @@ export interface MonitorGroup {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
 }
 
 export interface WorkspaceInsights {
@@ -193,4 +200,5 @@ export interface CreateMonitorInput {
   regionIds?: number[];
   config?: Record<string, unknown>;
   groupId?: string | null;
+  tagIds?: string[];
 }

@@ -7,6 +7,7 @@ import {
   type MonitorRecord,
   MonitorGroupRepository,
   MonitorRepository,
+  TagRepository,
 } from '@ping/db';
 
 export interface CreateMonitorInput {
@@ -22,6 +23,8 @@ export interface CreateMonitorInput {
   readonly regionIds: number[];
   /** Public id of the group to place this monitor in, or null for none. */
   readonly groupId?: string | null;
+  /** Tag ids to assign to this monitor. */
+  readonly tagIds?: string[];
 }
 
 export type UpdateMonitorInput = Partial<
@@ -37,6 +40,7 @@ export type UpdateMonitorInput = Partial<
     | 'quorum'
     | 'regionIds'
     | 'groupId'
+    | 'tagIds'
   >
 >;
 
@@ -57,9 +61,13 @@ export class MonitorService {
     const regionIds = await this.resolveRegions(input.regionIds);
     const quorum = this.clampQuorum(input.quorum, regionIds.length);
     const groupInternalId = await this.resolveGroup(workspaceId, input.groupId ?? null);
+    const tagIds = input.tagIds?.length
+      ? await new TagRepository(this.db).resolveIds(workspaceId, input.tagIds)
+      : [];
 
-    const monitor = await this.db.transaction((tx) =>
-      new MonitorRepository(tx).createWithRegions({
+    const monitor = await this.db.transaction(async (tx) => {
+      const repo = new MonitorRepository(tx);
+      const created = await repo.createWithRegions({
         publicId: newId(),
         workspaceId,
         name: input.name.trim(),
@@ -73,9 +81,11 @@ export class MonitorService {
         quorum,
         groupInternalId,
         regionIds,
-      }),
-    );
-    return { ...monitor, regionIds };
+      });
+      if (tagIds.length) await repo.replaceTags(created.publicId, workspaceId, tagIds);
+      return created;
+    });
+    return this.get(workspaceId, monitor.publicId);
   }
 
   async list(filter: ListMonitorsFilter): Promise<{ items: MonitorRecord[]; total: number }> {
@@ -127,6 +137,10 @@ export class MonitorService {
       if (input.regionIds !== undefined) {
         const regionIds = await this.resolveRegions(input.regionIds);
         await repo.replaceAssignments(publicId, workspaceId, regionIds);
+      }
+      if (input.tagIds !== undefined) {
+        const tagIds = await new TagRepository(this.db).resolveIds(workspaceId, input.tagIds);
+        await repo.replaceTags(publicId, workspaceId, tagIds);
       }
       return monitor;
     });

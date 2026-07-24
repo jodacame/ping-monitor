@@ -17,6 +17,7 @@ import type {
   StatsWindow,
   StatusPageDetail,
   StatusPageSummary,
+  Tag,
   Workspace,
   WorkspaceInsights,
 } from './types';
@@ -266,15 +267,39 @@ export const api = {
 
   listMonitors(
     workspaceId: string,
-    params: { search?: string; status?: string; page?: number; pageSize?: number } = {},
+    params: {
+      search?: string;
+      status?: string;
+      tagId?: string;
+      page?: number;
+      pageSize?: number;
+    } = {},
   ): Promise<Paginated<Monitor>> {
     const q = new URLSearchParams();
     if (params.search) q.set('search', params.search);
     if (params.status) q.set('status', params.status);
+    if (params.tagId) q.set('tagId', params.tagId);
     if (params.page) q.set('page', String(params.page));
     if (params.pageSize) q.set('pageSize', String(params.pageSize));
     const qs = q.toString();
     return request(`/workspaces/${workspaceId}/monitors${qs ? `?${qs}` : ''}`);
+  },
+
+  // --- Tags ------------------------------------------------------------------
+
+  listTags(workspaceId: string): Promise<Tag[]> {
+    return request(`/workspaces/${workspaceId}/tags`);
+  },
+
+  createTag(workspaceId: string, name: string, color?: string): Promise<Tag> {
+    return request(`/workspaces/${workspaceId}/tags`, {
+      method: 'POST',
+      body: { name, ...(color ? { color } : {}) },
+    });
+  },
+
+  deleteTag(workspaceId: string, id: string): Promise<void> {
+    return request(`/workspaces/${workspaceId}/tags/${id}`, { method: 'DELETE' });
   },
 
   getMonitor(workspaceId: string, id: string): Promise<Monitor> {

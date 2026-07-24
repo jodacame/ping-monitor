@@ -6,7 +6,7 @@ import {
   encodeMonitorStatus,
   encodeMonitorType,
 } from '../codecs.js';
-import type { MonitorRecord } from './models.js';
+import type { MonitorRecord, TagRecord } from './models.js';
 
 interface MonitorRow {
   id: string;
@@ -28,6 +28,7 @@ interface MonitorRow {
   last_response_ms: number | null;
   group_public_id: string | null;
   group_name: string | null;
+  tags: TagRecord[];
   created_at: Date;
   updated_at: Date;
 }
@@ -41,7 +42,13 @@ const SELECT_JOINED = `
          m.interval_seconds, m.timeout_ms, m.failure_threshold, m.recovery_threshold,
          m.quorum, m.enabled, m.status, m.last_checked_at, m.last_status_changed_at,
          m.last_response_ms, m.created_at, m.updated_at,
-         g.public_id AS group_public_id, g.name AS group_name
+         g.public_id AS group_public_id, g.name AS group_name,
+         COALESCE((
+           SELECT json_agg(json_build_object('id', t.id::text, 'name', t.name, 'color', t.color)
+                           ORDER BY t.name)
+           FROM monitor_tags mt JOIN tags t ON t.id = mt.tag_id
+           WHERE mt.monitor_id = m.id
+         ), '[]'::json) AS tags
   FROM monitors m
   LEFT JOIN monitor_groups g ON g.id = m.group_id`;
 
@@ -66,6 +73,7 @@ function toRecord(row: MonitorRow): MonitorRecord {
     lastResponseMs: row.last_response_ms,
     groupId: row.group_public_id,
     groupName: row.group_name,
+    tags: row.tags ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -170,6 +178,27 @@ export class MonitorRepository {
        SELECT $1, r FROM unnest($2::smallint[]) AS r
        ON CONFLICT (monitor_id, region_id) DO NOTHING`,
       [monitorId, regionIds],
+    );
+  }
+
+  /** Replace the tags on a monitor (by internal tag ids). */
+  async replaceTags(
+    publicId: string,
+    workspaceId: string,
+    tagIds: readonly string[],
+  ): Promise<void> {
+    const res = await this.db.query<{ id: string }>(
+      'SELECT id FROM monitors WHERE public_id = $1 AND workspace_id = $2',
+      [publicId, workspaceId],
+    );
+    const monitorId = res.rows[0]?.id;
+    if (!monitorId) return;
+    await this.db.query('DELETE FROM monitor_tags WHERE monitor_id = $1', [monitorId]);
+    if (tagIds.length === 0) return;
+    await this.db.query(
+      `INSERT INTO monitor_tags (monitor_id, tag_id)
+       SELECT $1, t FROM unnest($2::bigint[]) AS t ON CONFLICT DO NOTHING`,
+      [monitorId, tagIds],
     );
   }
 
