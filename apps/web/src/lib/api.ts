@@ -1,6 +1,8 @@
 import type {
   AuthResult,
   AuthUser,
+  Channel,
+  CreateChannelInput,
   CreateMonitorInput,
   Incident,
   Monitor,
@@ -11,6 +13,7 @@ import type {
   Region,
   StatsWindow,
   Workspace,
+  WorkspaceInsights,
 } from './types';
 
 /**
@@ -180,6 +183,36 @@ export const api = {
 
   overview(workspaceId: string): Promise<Overview> {
     return request(`/workspaces/${workspaceId}/overview`);
+  },
+
+  insights(workspaceId: string): Promise<WorkspaceInsights> {
+    return request(`/workspaces/${workspaceId}/insights`);
+  },
+
+  // --- Notification channels -------------------------------------------------
+
+  listChannels(workspaceId: string): Promise<Channel[]> {
+    return request(`/workspaces/${workspaceId}/channels`);
+  },
+
+  createChannel(workspaceId: string, input: CreateChannelInput): Promise<Channel> {
+    return request(`/workspaces/${workspaceId}/channels`, { method: 'POST', body: input });
+  },
+
+  updateChannel(
+    workspaceId: string,
+    id: string,
+    input: Partial<CreateChannelInput>,
+  ): Promise<Channel> {
+    return request(`/workspaces/${workspaceId}/channels/${id}`, { method: 'PATCH', body: input });
+  },
+
+  deleteChannel(workspaceId: string, id: string): Promise<void> {
+    return request(`/workspaces/${workspaceId}/channels/${id}`, { method: 'DELETE' });
+  },
+
+  testChannel(workspaceId: string, id: string): Promise<{ ok: boolean; error?: string }> {
+    return request(`/workspaces/${workspaceId}/channels/${id}/test`, { method: 'POST' });
   },
 
   listMonitors(

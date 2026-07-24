@@ -50,6 +50,35 @@ export interface Monitor {
   createdAt: string;
   updatedAt: string;
   regionIds?: number[];
+  /** 24h uptime ratio [0,1] (list view enrichment). */
+  uptime24h?: number | null;
+  /** Recent hourly up-ratios, oldest→newest (null = no data). */
+  bars?: Array<number | null>;
+}
+
+export interface WorkspaceInsights {
+  uptime: number | null;
+  avgLatencyMs: number | null;
+  incidents24h: number;
+}
+
+export type ConnectorType = 'smtp' | 'telegram' | 'webhook';
+
+export interface Channel {
+  id: string;
+  type: ConnectorType;
+  name: string;
+  config: Record<string, unknown>;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateChannelInput {
+  type: ConnectorType;
+  name: string;
+  config: Record<string, unknown>;
+  enabled?: boolean;
 }
 
 export interface Paginated<T> {

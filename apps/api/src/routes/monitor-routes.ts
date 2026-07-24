@@ -32,6 +32,10 @@ export function registerMonitorRoutes(
     return ctx.stats.workspaceOverview(request.workspace!.id);
   });
 
+  app.get(`${base}/insights`, { preHandler }, async (request) => {
+    return ctx.stats.workspaceInsights(request.workspace!.id);
+  });
+
   app.get(`${base}/monitors`, { preHandler }, async (request) => {
     const q = listMonitorsQuerySchema.parse(request.query);
     const filter: ListMonitorsFilter = {
@@ -43,7 +47,13 @@ export function registerMonitorRoutes(
       ...(q.tagId ? { tagId: q.tagId } : {}),
     };
     const { items, total } = await ctx.monitors.list(filter);
-    return { items: items.map(monitorToDto), page: q.page, pageSize: q.pageSize, total };
+    // Enrich each row with 24h uptime + heartbeat bars in one bounded query.
+    const stats = await ctx.stats.miniStats(items.map((m) => m.id));
+    const enriched = items.map((m) => {
+      const s = stats.get(m.id);
+      return { ...monitorToDto(m), uptime24h: s?.uptime24h ?? null, bars: s?.bars ?? [] };
+    });
+    return { items: enriched, page: q.page, pageSize: q.pageSize, total };
   });
 
   app.post(`${base}/monitors`, { preHandler }, async (request, reply) => {

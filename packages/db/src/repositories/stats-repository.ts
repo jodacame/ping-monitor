@@ -51,6 +51,21 @@ export interface IncidentSummary {
 
 export type SeriesGranularity = 'hour' | 'day';
 
+/** Compact per-monitor stats for the list view (uptime + heartbeat bars). */
+export interface MonitorMiniStats {
+  /** 24h uptime ratio in [0,1], or null when no checks. */
+  readonly uptime24h: number | null;
+  /** Up-ratio per recent hourly bucket, oldest→newest (null = no data). */
+  readonly bars: Array<number | null>;
+}
+
+/** Workspace-wide 24h insights for the dashboard side panel. */
+export interface WorkspaceInsights {
+  readonly uptime: number | null;
+  readonly avgLatencyMs: number | null;
+  readonly incidents24h: number;
+}
+
 interface RollupAggRow {
   total: string;
   up: string;
@@ -196,6 +211,84 @@ export class StatsRepository {
       statusCode: r.status_code,
       errorKind: decodeErrorKind(r.error_kind),
     }));
+  }
+
+  /**
+   * Compact stats for a set of monitors (list view): 24h uptime and the last
+   * ~30 hourly up-ratios for a heartbeat bar. Two bounded, indexed queries.
+   */
+  async miniStats(monitorIds: string[], bars = 30): Promise<Map<string, MonitorMiniStats>> {
+    const out = new Map<string, MonitorMiniStats>();
+    if (monitorIds.length === 0) return out;
+
+    const uptimeRes = await this.db.query<{ monitor_id: string; uptime: number | null }>(
+      `SELECT monitor_id,
+              sum(checks_up)::float / NULLIF(sum(checks_total), 0) AS uptime
+       FROM monitor_stats_hourly
+       WHERE monitor_id = ANY($1::bigint[]) AND bucket >= now() - interval '24 hours'
+       GROUP BY monitor_id`,
+      [monitorIds],
+    );
+    const uptimeMap = new Map(uptimeRes.rows.map((r) => [r.monitor_id, r.uptime]));
+
+    const barsRes = await this.db.query<{ monitor_id: string; ratio: number | null }>(
+      `SELECT monitor_id, ratio FROM (
+         SELECT monitor_id, bucket,
+                sum(checks_up)::float / NULLIF(sum(checks_total), 0) AS ratio,
+                row_number() OVER (PARTITION BY monitor_id ORDER BY bucket DESC) AS rn
+         FROM monitor_stats_hourly
+         WHERE monitor_id = ANY($1::bigint[]) AND bucket >= now() - interval '72 hours'
+         GROUP BY monitor_id, bucket
+       ) t
+       WHERE rn <= $2
+       ORDER BY monitor_id, bucket ASC`,
+      [monitorIds, bars],
+    );
+    const barsMap = new Map<string, Array<number | null>>();
+    for (const row of barsRes.rows) {
+      const arr = barsMap.get(row.monitor_id) ?? [];
+      arr.push(row.ratio === null ? null : Number(row.ratio));
+      barsMap.set(row.monitor_id, arr);
+    }
+
+    for (const id of monitorIds) {
+      const uptime = uptimeMap.get(id);
+      out.set(id, {
+        uptime24h: uptime === undefined || uptime === null ? null : Number(uptime),
+        bars: barsMap.get(id) ?? [],
+      });
+    }
+    return out;
+  }
+
+  /** Workspace-wide 24h uptime, average latency and incident count. */
+  async workspaceInsights(workspaceId: string): Promise<WorkspaceInsights> {
+    const agg = await this.db.query<{
+      uptime: number | null;
+      lat_sum: string | null;
+      lat_count: string | null;
+    }>(
+      `SELECT sum(h.checks_up)::float / NULLIF(sum(h.checks_total), 0) AS uptime,
+              sum(h.latency_sum)::text AS lat_sum,
+              sum(h.latency_count)::text AS lat_count
+       FROM monitor_stats_hourly h
+       JOIN monitors m ON m.id = h.monitor_id
+       WHERE m.workspace_id = $1 AND h.bucket >= now() - interval '24 hours'`,
+      [workspaceId],
+    );
+    const inc = await this.db.query<{ c: number }>(
+      `SELECT count(*)::int AS c
+       FROM incidents i
+       JOIN monitors m ON m.id = i.monitor_id
+       WHERE m.workspace_id = $1 AND i.started_at >= now() - interval '24 hours'`,
+      [workspaceId],
+    );
+    const row = agg.rows[0]!;
+    return {
+      uptime: row.uptime === null ? null : Number(row.uptime),
+      avgLatencyMs: avg(Number(row.lat_sum ?? 0), Number(row.lat_count ?? 0)),
+      incidents24h: inc.rows[0]?.c ?? 0,
+    };
   }
 
   async listIncidents(monitorId: string, limit: number): Promise<IncidentSummary[]> {

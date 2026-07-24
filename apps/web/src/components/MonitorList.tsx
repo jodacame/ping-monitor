@@ -1,14 +1,21 @@
 import { motion } from 'framer-motion';
-import { Activity, ChevronRight, Globe, Network, Pause, Play } from 'lucide-react';
+import { Activity, ChevronRight, Globe, Network, Pause, Play, RefreshCw } from 'lucide-react';
 import type { Monitor, MonitorType } from '../lib/types';
-import { formatLatency, formatRelativeTime, prettyTarget } from '../lib/format';
+import { formatLatency, prettyTarget } from '../lib/format';
 import { Badge, IconButton, StatusDot } from './ui';
+import { UptimeBars } from './UptimeBars';
 
 const TYPE_META: Record<MonitorType, { label: string; icon: typeof Globe }> = {
   http: { label: 'HTTP', icon: Globe },
   tcp: { label: 'TCP', icon: Network },
   icmp: { label: 'Ping', icon: Activity },
 };
+
+function intervalLabel(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${seconds / 60}m`;
+  return `${seconds / 3600}h`;
+}
 
 function MonitorRow({
   monitor,
@@ -45,18 +52,23 @@ function MonitorRow({
         <div className="truncate text-xs text-muted">{prettyTarget(monitor.target)}</div>
       </div>
 
+      {/* Interval */}
+      <div className="hidden items-center gap-1 text-xs text-muted lg:flex">
+        <RefreshCw size={12} />
+        {intervalLabel(monitor.intervalSeconds)}
+      </div>
+
+      {/* Heartbeat + uptime */}
+      <div className="hidden md:block">
+        <UptimeBars bars={monitor.bars ?? []} uptime={monitor.uptime24h} />
+      </div>
+
       {/* Latency */}
-      <div className="hidden w-20 text-right sm:block">
+      <div className="hidden w-16 text-right sm:block">
         <div className="text-sm font-medium tabular-nums text-fg">
           {formatLatency(monitor.lastResponseMs)}
         </div>
         <div className="text-[11px] text-muted">latency</div>
-      </div>
-
-      {/* Last checked */}
-      <div className="hidden w-24 text-right md:block">
-        <div className="text-sm tabular-nums text-fg">{formatRelativeTime(monitor.lastCheckedAt)}</div>
-        <div className="text-[11px] text-muted">checked</div>
       </div>
 
       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>

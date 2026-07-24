@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, CheckCircle2, PauseCircle, Plus, Radar, Search, XCircle } from 'lucide-react';
+import { Activity, Plus, Search } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import type { Monitor } from '../lib/types';
 import { AppShell } from '../components/AppShell';
-import { StatTile } from '../components/StatTile';
+import { DashboardAside } from '../components/DashboardAside';
 import { MonitorList } from '../components/MonitorList';
 import { MonitorDetailDrawer } from '../components/MonitorDetailDrawer';
 import { MonitorFormDrawer } from '../components/MonitorFormDrawer';
@@ -45,6 +45,13 @@ export function DashboardPage() {
     refetchInterval: 15_000,
   });
 
+  const insights = useQuery({
+    queryKey: ['insights', workspaceId],
+    queryFn: () => api.insights(workspaceId),
+    enabled: Boolean(workspaceId),
+    refetchInterval: 15_000,
+  });
+
   const monitors = useQuery({
     queryKey: ['monitors', workspaceId, { search, status }],
     queryFn: () =>
@@ -69,7 +76,6 @@ export function DashboardPage() {
   });
 
   const items = monitors.data?.items ?? [];
-  const o = overview.data;
 
   const openNew = (): void => {
     setEditing(null);
@@ -81,7 +87,6 @@ export function DashboardPage() {
     setFormOpen(true);
   };
 
-  // Keep the selected monitor's data fresh from the list after refetches.
   const selectedLive = useMemo(
     () => (selected ? (items.find((m) => m.id === selected.id) ?? selected) : null),
     [selected, items],
@@ -92,7 +97,7 @@ export function DashboardPage() {
       title={
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold text-fg">Monitors</span>
-          {o && <Badge tone="neutral">{o.total}</Badge>}
+          {overview.data && <Badge tone="neutral">{overview.data.total}</Badge>}
         </div>
       }
       actions={
@@ -101,69 +106,71 @@ export function DashboardPage() {
         </Button>
       }
     >
-      <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-        {/* KPI tiles */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          <StatTile label="Total monitors" value={o?.total ?? '—'} icon={Radar} tone="primary" delay={0} />
-          <StatTile label="Operational" value={o?.up ?? '—'} icon={CheckCircle2} tone="up" delay={60} />
-          <StatTile label="Down" value={o?.down ?? '—'} icon={XCircle} tone="down" delay={120} />
-          <StatTile
-            label="Paused"
-            value={(o ? o.paused + o.pending : '—') as number | string}
-            icon={PauseCircle}
-            tone="neutral"
-            delay={180}
-          />
-        </div>
+      <div className="mx-auto max-w-7xl p-4 sm:p-6">
+        <div className="flex flex-col gap-6 lg:flex-row">
+          {/* Main column */}
+          <main className="order-2 min-w-0 flex-1 space-y-4 lg:order-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:max-w-xs">
+                <Search
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+                />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search monitors…"
+                  className="pl-9"
+                />
+              </div>
+              <SegmentedControl options={STATUS_FILTERS} value={status} onChange={setStatus} />
+            </div>
 
-        {/* Filters */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-xs">
-            <Search
-              size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-            />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search monitors…"
-              className="pl-9"
-            />
-          </div>
-          <SegmentedControl options={STATUS_FILTERS} value={status} onChange={setStatus} />
-        </div>
+            {monitors.isLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16" />
+                ))}
+              </div>
+            ) : items.length > 0 ? (
+              <MonitorList
+                monitors={items}
+                onSelect={setSelected}
+                onTogglePause={(m) => togglePause.mutate(m)}
+              />
+            ) : (
+              <EmptyState
+                icon={<Activity size={22} />}
+                title={
+                  search || status !== 'all' ? 'No monitors match your filters' : 'No monitors yet'
+                }
+                description={
+                  search || status !== 'all'
+                    ? 'Try a different search or filter.'
+                    : 'Add your first monitor and we’ll start watching it immediately.'
+                }
+                action={
+                  !search && status === 'all' ? (
+                    <Button leadingIcon={<Plus size={16} />} onClick={openNew}>
+                      New monitor
+                    </Button>
+                  ) : undefined
+                }
+              />
+            )}
+          </main>
 
-        {/* List */}
-        {monitors.isLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-16" />
-            ))}
-          </div>
-        ) : items.length > 0 ? (
-          <MonitorList
-            monitors={items}
-            onSelect={setSelected}
-            onTogglePause={(m) => togglePause.mutate(m)}
-          />
-        ) : (
-          <EmptyState
-            icon={<Activity size={22} />}
-            title={search || status !== 'all' ? 'No monitors match your filters' : 'No monitors yet'}
-            description={
-              search || status !== 'all'
-                ? 'Try a different search or filter.'
-                : 'Add your first monitor and we’ll start watching it immediately.'
-            }
-            action={
-              !search && status === 'all' ? (
-                <Button leadingIcon={<Plus size={16} />} onClick={openNew}>
-                  New monitor
-                </Button>
-              ) : undefined
-            }
-          />
-        )}
+          {/* Right summary column */}
+          <aside className="order-1 shrink-0 lg:order-2 lg:w-80">
+            <div className="lg:sticky lg:top-20">
+              <DashboardAside
+                overview={overview.data}
+                insights={insights.data}
+                loading={overview.isLoading || insights.isLoading}
+              />
+            </div>
+          </aside>
+        </div>
       </div>
 
       {/* Floating action button on mobile */}
@@ -175,7 +182,6 @@ export function DashboardPage() {
         <Plus size={24} />
       </button>
 
-      {/* Detail drawer */}
       <Drawer
         open={Boolean(selectedLive)}
         onClose={() => setSelected(null)}
@@ -192,7 +198,6 @@ export function DashboardPage() {
         )}
       </Drawer>
 
-      {/* Create / edit drawer */}
       <MonitorFormDrawer
         open={formOpen}
         onClose={() => setFormOpen(false)}

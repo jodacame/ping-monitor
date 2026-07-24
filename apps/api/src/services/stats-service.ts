@@ -1,11 +1,13 @@
 import {
   type Database,
   type IncidentSummary,
+  type MonitorMiniStats,
   type MonitorSummary,
   type RecentCheck,
   type SeriesGranularity,
   type SeriesPoint,
   StatsRepository,
+  type WorkspaceInsights,
   type WorkspaceOverview,
 } from '@ping/db';
 
@@ -26,6 +28,14 @@ export class StatsService {
 
   workspaceOverview(workspaceId: string): Promise<WorkspaceOverview> {
     return new StatsRepository(this.db).workspaceOverview(workspaceId);
+  }
+
+  workspaceInsights(workspaceId: string): Promise<WorkspaceInsights> {
+    return new StatsRepository(this.db).workspaceInsights(workspaceId);
+  }
+
+  miniStats(monitorIds: string[]): Promise<Map<string, MonitorMiniStats>> {
+    return new StatsRepository(this.db).miniStats(monitorIds);
   }
 
   summary(monitorId: string, window: StatsWindow): Promise<MonitorSummary> {
