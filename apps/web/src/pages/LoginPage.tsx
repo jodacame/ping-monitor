@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth';
 import { Button, Field, Input } from '../components/ui';
 import { AuthLayout } from './AuthLayout';
 
-export function LoginPage() {
+export function LoginPage({ canRegister = false }: { canRegister?: boolean }) {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -32,12 +32,14 @@ export function LoginPage() {
       title="Welcome back"
       subtitle="Sign in to keep an eye on your services."
       footer={
-        <>
-          Don&apos;t have an account?{' '}
-          <Link to="/register" className="font-medium text-primary hover:underline">
-            Create one
-          </Link>
-        </>
+        canRegister ? (
+          <>
+            Don&apos;t have an account?{' '}
+            <Link to="/register" className="font-medium text-primary hover:underline">
+              Create one
+            </Link>
+          </>
+        ) : null
       }
     >
       <form onSubmit={onSubmit} className="space-y-4">

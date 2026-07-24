@@ -180,6 +180,11 @@ export const api = {
     return request('/auth/me');
   },
 
+  /** Public: whether the instance needs first-account setup / allows registration. */
+  registrationStatus(): Promise<{ needsSetup: boolean; registrationOpen: boolean }> {
+    return request('/auth/registration', { auth: false });
+  },
+
   // --- Resources -------------------------------------------------------------
 
   listWorkspaces(): Promise<Workspace[]> {

@@ -22,6 +22,8 @@ x-backend-env: &backend-env
   REDIS_URL: redis://redis:6379
   JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_TO_A_LONG_RANDOM_SECRET_0123456789}
   PROBE_REGION: ${PROBE_REGION:-local}
+  # Only the first account is allowed by default; set true to open signup.
+  ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
 
 services:
   postgres:

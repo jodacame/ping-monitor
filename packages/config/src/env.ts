@@ -81,6 +81,12 @@ const apiSchema = z.object({
   JWT_ACCESS_TTL: z.coerce.number().int().positive().default(900),
   JWT_REFRESH_TTL: z.coerce.number().int().positive().default(2_592_000),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  // Open self-service registration. Off by default; the first account is always
+  // allowed (clean-install onboarding) regardless of this flag.
+  ALLOW_REGISTRATION: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true' || v === '1'),
 });
 
 export interface ApiConfig {
@@ -90,6 +96,7 @@ export interface ApiConfig {
   readonly jwtAccessTtl: number;
   readonly jwtRefreshTtl: number;
   readonly corsOrigins: string[];
+  readonly allowRegistration: boolean;
 }
 
 export function loadApiConfig(source: EnvSource = process.env): ApiConfig {
@@ -103,6 +110,7 @@ export function loadApiConfig(source: EnvSource = process.env): ApiConfig {
     corsOrigins: e.CORS_ORIGIN.split(',')
       .map((o) => o.trim())
       .filter(Boolean),
+    allowRegistration: e.ALLOW_REGISTRATION,
   };
 }
 

@@ -12,6 +12,11 @@ export function registerAuthRoutes(
   // Tighter rate limits on credential endpoints (anti brute-force).
   const authLimit = { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } };
 
+  // Public: lets the SPA decide between onboarding, login-only, or open register.
+  app.get('/auth/registration', async () => {
+    return ctx.auth.registrationStatus();
+  });
+
   app.post('/auth/register', authLimit, async (request, reply) => {
     const body = registerSchema.parse(request.body);
     const result = await ctx.auth.register(body, request.headers['user-agent'] ?? null);

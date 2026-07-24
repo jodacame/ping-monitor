@@ -73,7 +73,7 @@ export function buildContext(): AppContext {
     logger,
     db,
     tokens,
-    auth: new AuthService(db, tokens),
+    auth: new AuthService(db, tokens, apiConfig.allowRegistration),
     monitors: new MonitorService(db),
     stats: new StatsService(db),
     infra: new InfraService(db),

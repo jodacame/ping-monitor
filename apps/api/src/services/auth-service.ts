@@ -1,4 +1,4 @@
-import { ConflictError, UnauthorizedError, newId } from '@ping/core';
+import { ConflictError, ForbiddenError, UnauthorizedError, newId } from '@ping/core';
 import {
   type Database,
   RefreshTokenRepository,
@@ -54,13 +54,32 @@ export class AuthService {
   constructor(
     private readonly db: Database,
     private readonly tokens: TokenService,
+    /** Whether open self-service registration is enabled (env ALLOW_REGISTRATION). */
+    private readonly allowRegistration: boolean,
   ) {}
+
+  /**
+   * Public registration state for the SPA:
+   * - `needsSetup`  → clean install, no users yet: show first-account onboarding.
+   * - `registrationOpen` → whether the register form should be offered at all
+   *   (always true during setup; otherwise gated by ALLOW_REGISTRATION).
+   */
+  async registrationStatus(): Promise<{ needsSetup: boolean; registrationOpen: boolean }> {
+    const needsSetup = !(await new UserRepository(this.db).hasAny());
+    return { needsSetup, registrationOpen: needsSetup || this.allowRegistration };
+  }
 
   async register(input: RegisterInput, userAgent: string | null): Promise<AuthResult> {
     const email = input.email.trim().toLowerCase();
     const name = input.name?.trim() || null;
 
-    if (await new UserRepository(this.db).existsByEmail(email)) {
+    const users = new UserRepository(this.db);
+    // The first account is always allowed (clean-install onboarding); afterwards
+    // registration is gated by ALLOW_REGISTRATION.
+    if (!this.allowRegistration && (await users.hasAny())) {
+      throw new ForbiddenError('Registration is disabled');
+    }
+    if (await users.existsByEmail(email)) {
       throw new ConflictError('Email already registered');
     }
     const passwordHash = await hashPassword(input.password);

@@ -75,4 +75,10 @@ export class UserRepository {
     const res = await this.db.query('SELECT 1 FROM users WHERE email = $1', [email]);
     return res.rowCount === 1;
   }
+
+  /** Whether any user exists — used to allow bootstrapping the first account. */
+  async hasAny(): Promise<boolean> {
+    const res = await this.db.query('SELECT 1 FROM users LIMIT 1');
+    return res.rowCount === 1;
+  }
 }

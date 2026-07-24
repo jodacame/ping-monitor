@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth';
 import { Button, Field, Input } from '../components/ui';
 import { AuthLayout } from './AuthLayout';
 
-export function RegisterPage() {
+export function RegisterPage({ isSetup = false }: { isSetup?: boolean }) {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -30,15 +30,21 @@ export function RegisterPage() {
 
   return (
     <AuthLayout
-      title="Create your account"
-      subtitle="Set up monitoring in less than a minute."
+      title={isSetup ? 'Welcome — set up your admin account' : 'Create your account'}
+      subtitle={
+        isSetup
+          ? 'This is the first account for your Ping Monitor instance. It becomes the owner.'
+          : 'Set up monitoring in less than a minute.'
+      }
       footer={
-        <>
-          Already have an account?{' '}
-          <Link to="/login" className="font-medium text-primary hover:underline">
-            Sign in
-          </Link>
-        </>
+        isSetup ? null : (
+          <>
+            Already have an account?{' '}
+            <Link to="/login" className="font-medium text-primary hover:underline">
+              Sign in
+            </Link>
+          </>
+        )
       }
     >
       <form onSubmit={onSubmit} className="space-y-4">
@@ -75,7 +81,7 @@ export function RegisterPage() {
           />
         </Field>
         <Button type="submit" size="lg" fullWidth loading={loading}>
-          Create account
+          {isSetup ? 'Create admin account' : 'Create account'}
         </Button>
       </form>
     </AuthLayout>

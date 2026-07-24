@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Spinner } from './components/ui';
 import { useAuth } from './lib/auth';
+import { useRegistration } from './lib/useRegistration';
 import { AlertsPage } from './pages/AlertsPage';
 import { ChannelFormPage } from './pages/ChannelFormPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -16,8 +17,11 @@ import { StatusPublicPage } from './pages/StatusPublicPage';
 
 export function App() {
   const { ready, user } = useAuth();
+  const reg = useRegistration();
 
-  if (!ready) {
+  // Wait for auth, and (only when signed out) for the registration state that
+  // decides between onboarding, login-only, and open registration.
+  if (!ready || (!user && reg.loading)) {
     return (
       <div className="grid h-full place-items-center text-muted">
         <Spinner size={28} />
@@ -25,16 +29,37 @@ export function App() {
     );
   }
 
+  const needsSetup = reg.status?.needsSetup ?? false;
+  const registrationOpen = reg.status?.registrationOpen ?? false;
+
   const requireAuth = (element: ReactNode): ReactNode =>
     user ? element : <Navigate to="/login" replace />;
+
+  // Signed out, clean install → force the first-account onboarding.
+  const loginElement = user ? (
+    <Navigate to="/" replace />
+  ) : needsSetup ? (
+    <Navigate to="/register" replace />
+  ) : (
+    <LoginPage canRegister={registrationOpen} />
+  );
+
+  // Register is reachable only during setup or when registration is open.
+  const registerElement = user ? (
+    <Navigate to="/" replace />
+  ) : registrationOpen ? (
+    <RegisterPage isSetup={needsSetup} />
+  ) : (
+    <Navigate to="/login" replace />
+  );
 
   return (
     <Routes>
       {/* Public, unauthenticated status page */}
       <Route path="/status/:slug" element={<StatusPublicPage />} />
 
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
-      <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
+      <Route path="/login" element={loginElement} />
+      <Route path="/register" element={registerElement} />
 
       <Route path="/" element={requireAuth(<DashboardPage />)} />
       <Route path="/monitors/new" element={requireAuth(<MonitorFormPage />)} />

@@ -17,6 +17,16 @@ An API key can access every workspace-scoped endpoint of the workspace it belong
 to. Managing keys themselves (creating/revoking) requires a signed-in user, not a
 key.
 
+### Registration & onboarding
+
+`GET /auth/registration` (public) returns `{ needsSetup, registrationOpen }`:
+
+- `needsSetup` — clean install with no users yet; the first account can always be
+  created (onboarding), regardless of configuration.
+- `registrationOpen` — whether `POST /auth/register` is currently accepted. After
+  the first account, this is `false` unless `ALLOW_REGISTRATION=true`. A blocked
+  registration returns `403`.
+
 ## REST — common endpoints
 
 All are under `/workspaces/:workspaceId`.

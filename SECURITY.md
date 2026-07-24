@@ -45,6 +45,9 @@ before exposing it to the internet:
 
 - Set a strong, unique `JWT_SECRET` (`openssl rand -base64 48`). Never ship the
   example/default value.
+- Keep self-service registration closed (`ALLOW_REGISTRATION=false`, the default).
+  The first account is always allowed so you can complete setup; open registration
+  only if you deliberately want a public sign-up.
 - Serve the API and dashboard over HTTPS/TLS (terminate at your proxy).
 - Restrict database and Redis to the internal network; never expose them publicly.
 - Use scoped, expiring, IP-restricted **API keys** for automation, and prefer
