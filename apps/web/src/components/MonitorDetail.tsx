@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Download, Pencil, Pause, Play, Trash2 } from 'lucide-react';
+import { AlertTriangle, Download, ExternalLink, Pencil, Pause, Play, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import {
@@ -9,10 +9,12 @@ import {
   formatLatency,
   formatRelativeTime,
   formatUptime,
+  linkableUrl,
 } from '../lib/format';
 import type { Monitor, StatsWindow } from '../lib/types';
 import {
   Button,
+  ButtonLink,
   ConfirmDialog,
   EmptyState,
   SegmentedControl,
@@ -94,6 +96,8 @@ export function MonitorDetail({
   });
 
   const summary = stats.data?.summary;
+  // Only http(s) monitors have a target a browser can open; TCP/ICMP ones do not.
+  const visitUrl = linkableUrl(monitor.target);
 
   return (
     <>
@@ -119,6 +123,18 @@ export function MonitorDetail({
             >
               Edit
             </Button>
+            {visitUrl && (
+              <ButtonLink
+                size="sm"
+                variant="ghost"
+                leadingIcon={<ExternalLink size={15} />}
+                href={visitUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Visit
+              </ButtonLink>
+            )}
             <Button
               size="sm"
               variant="ghost"

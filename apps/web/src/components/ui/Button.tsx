@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { Spinner } from './feedback';
 
@@ -19,6 +19,20 @@ const SIZES: Record<Size, string> = {
   md: 'h-10 px-4 text-sm gap-2',
   lg: 'h-11 px-5 text-sm gap-2',
 };
+
+/** Shared class recipe so buttons and button-styled links stay identical. */
+function buttonClasses(variant: Variant, size: Size, fullWidth?: boolean, className?: string) {
+  return cn(
+    'inline-flex items-center justify-center rounded-lg font-medium select-none',
+    'transition-[filter,background-color,box-shadow] duration-150',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
+    'disabled:opacity-50 disabled:pointer-events-none',
+    VARIANTS[variant],
+    SIZES[size],
+    fullWidth && 'w-full',
+    className,
+  );
+}
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -44,16 +58,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
-      className={cn(
-        'inline-flex items-center justify-center rounded-lg font-medium select-none',
-        'transition-[filter,background-color,box-shadow] duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
-        'disabled:opacity-50 disabled:pointer-events-none',
-        VARIANTS[variant],
-        SIZES[size],
-        fullWidth && 'w-full',
-        className,
-      )}
+      className={buttonClasses(variant, size, fullWidth, className)}
       disabled={disabled || loading}
       {...rest}
     >
@@ -61,6 +66,34 @@ export function Button({
       {children}
       {!loading && trailingIcon}
     </button>
+  );
+}
+
+export interface ButtonLinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
+  variant?: Variant;
+  size?: Size;
+  leadingIcon?: ReactNode;
+  trailingIcon?: ReactNode;
+  fullWidth?: boolean;
+}
+
+/** An anchor that looks exactly like a `Button`, for real navigation targets. */
+export function ButtonLink({
+  variant = 'primary',
+  size = 'md',
+  leadingIcon,
+  trailingIcon,
+  fullWidth,
+  className,
+  children,
+  ...rest
+}: ButtonLinkProps) {
+  return (
+    <a className={buttonClasses(variant, size, fullWidth, className)} {...rest}>
+      {leadingIcon}
+      {children}
+      {trailingIcon}
+    </a>
   );
 }
 

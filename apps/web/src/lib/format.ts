@@ -57,3 +57,19 @@ export function prettyTarget(target: string): string {
     return target;
   }
 }
+
+/**
+ * The target as a browsable link, or null when it is not one.
+ *
+ * Parsing alone is not enough: a TCP target such as "example.com:443" is a
+ * valid URL whose protocol is "example.com:", so the scheme must be checked
+ * explicitly. ICMP targets (bare hosts) simply fail to parse.
+ */
+export function linkableUrl(target: string): string | null {
+  try {
+    const url = new URL(target);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}

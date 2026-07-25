@@ -1,5 +1,5 @@
 /** Atomic UI kit barrel. */
-export { Button, IconButton } from './Button';
+export { Button, ButtonLink, IconButton } from './Button';
 export { Badge } from './Badge';
 export { Card } from './Card';
 export { Field, Input, Textarea, Select } from './form';
