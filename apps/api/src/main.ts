@@ -1,10 +1,16 @@
 import { buildApp } from './app.js';
 import { buildContext } from './context.js';
+import { warnAboutInvalidIpAllowlists, warnAboutTrustProxy } from './startup-checks.js';
 
 /** API entrypoint: build the context and server, listen, and shut down cleanly. */
 async function main(): Promise<void> {
   const ctx = buildContext();
   const app = await buildApp(ctx);
+
+  // Diagnostics for configuration and data that a stricter version can
+  // invalidate. They only log, never block startup.
+  warnAboutTrustProxy(ctx.apiConfig.trustProxy, ctx.logger);
+  await warnAboutInvalidIpAllowlists(ctx.db, ctx.logger);
 
   await app.listen({ host: ctx.apiConfig.host, port: ctx.apiConfig.port });
   ctx.logger.info({ host: ctx.apiConfig.host, port: ctx.apiConfig.port }, 'API listening');

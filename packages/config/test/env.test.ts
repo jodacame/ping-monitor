@@ -19,3 +19,40 @@ describe('loadApiConfig — ALLOW_REGISTRATION', () => {
     expect(loadApiConfig({ ...base, ALLOW_REGISTRATION: 'yes' }).allowRegistration).toBe(false);
   });
 });
+
+describe('loadApiConfig — TRUST_PROXY', () => {
+  // The client IP gates rate limiting and API-key IP allowlists, so the default
+  // must not trust a header the caller controls.
+  it('trusts nothing by default', () => {
+    expect(loadApiConfig(base).trustProxy).toBe(false);
+  });
+
+  it('reads a hop count as a number', () => {
+    expect(loadApiConfig({ ...base, TRUST_PROXY: '1' }).trustProxy).toBe(1);
+    expect(loadApiConfig({ ...base, TRUST_PROXY: '2' }).trustProxy).toBe(2);
+  });
+
+  it('accepts an explicit list of trusted proxies', () => {
+    expect(loadApiConfig({ ...base, TRUST_PROXY: '10.0.0.1, 172.16.0.0/12' }).trustProxy).toEqual([
+      '10.0.0.1',
+      '172.16.0.0/12',
+    ]);
+  });
+
+  it('treats "false", "0" and empty as trust-nothing', () => {
+    expect(loadApiConfig({ ...base, TRUST_PROXY: 'false' }).trustProxy).toBe(false);
+    expect(loadApiConfig({ ...base, TRUST_PROXY: '0' }).trustProxy).toBe(false);
+    expect(loadApiConfig({ ...base, TRUST_PROXY: '   ' }).trustProxy).toBe(false);
+  });
+
+  it('allows an explicit opt-in to trusting every hop', () => {
+    expect(loadApiConfig({ ...base, TRUST_PROXY: 'true' }).trustProxy).toBe(true);
+  });
+
+  it('never turns a negative or fractional value into a hop count', () => {
+    // These would be nonsense as hop counts; falling through to the list branch
+    // keeps them harmless (they simply match no proxy).
+    expect(loadApiConfig({ ...base, TRUST_PROXY: '-1' }).trustProxy).toEqual(['-1']);
+    expect(loadApiConfig({ ...base, TRUST_PROXY: '1.5' }).trustProxy).toEqual(['1.5']);
+  });
+});

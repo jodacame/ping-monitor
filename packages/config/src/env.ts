@@ -20,7 +20,9 @@ function parse<T extends z.ZodTypeAny>(schema: T, source: EnvSource): z.infer<T>
       .join('\n');
     throw new Error(`Invalid environment configuration:\n${issues}`);
   }
-  return result.data;
+  // `safeParse` on a generic `ZodTypeAny` widens `data` to `any`; the value is
+  // guaranteed by `schema`, so narrow it back to that schema's output type.
+  return result.data as z.infer<T>;
 }
 
 // --- Common ------------------------------------------------------------------
@@ -87,7 +89,34 @@ const apiSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === 'true' || v === '1'),
+  // How much of `X-Forwarded-For` to believe. The client IP drives rate limiting
+  // and API-key IP allowlists, so trusting a header nobody vouches for lets any
+  // caller forge it. Off by default (direct exposure); set to the number of
+  // proxies in front of the API (the bundled Compose stack has exactly one:
+  // nginx) or to an explicit list of trusted proxy IPs/CIDRs.
+  TRUST_PROXY: z.string().default('false'),
 });
+
+/** Fastify's `trustProxy` option: false | true | hop count | IP/CIDR list. */
+export type TrustProxySetting = boolean | number | string[];
+
+/**
+ * `false`/`0`/empty  -> trust nothing (request.ip is the socket address)
+ * `true`             -> trust every hop (only safe on a closed network)
+ * a positive integer -> trust that many proxies closest to the server
+ * anything else      -> comma-separated list of trusted proxy IPs/CIDRs
+ */
+function parseTrustProxy(raw: string): TrustProxySetting {
+  const value = raw.trim();
+  if (value === '' || value === 'false' || value === '0') return false;
+  if (value === 'true') return true;
+  const hops = Number(value);
+  if (Number.isInteger(hops) && hops > 0) return hops;
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
 
 export interface ApiConfig {
   readonly host: string;
@@ -97,6 +126,7 @@ export interface ApiConfig {
   readonly jwtRefreshTtl: number;
   readonly corsOrigins: string[];
   readonly allowRegistration: boolean;
+  readonly trustProxy: TrustProxySetting;
 }
 
 export function loadApiConfig(source: EnvSource = process.env): ApiConfig {
@@ -111,6 +141,7 @@ export function loadApiConfig(source: EnvSource = process.env): ApiConfig {
       .map((o) => o.trim())
       .filter(Boolean),
     allowRegistration: e.ALLOW_REGISTRATION,
+    trustProxy: parseTrustProxy(e.TRUST_PROXY),
   };
 }
 

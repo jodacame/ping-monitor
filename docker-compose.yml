@@ -24,6 +24,11 @@ x-backend-env: &backend-env
   PROBE_REGION: ${PROBE_REGION:-local}
   # Only the first account is allowed by default; set true to open signup.
   ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
+  # Proxies between the client and the API. Rate limiting and API-key IP
+  # allowlists use the resulting client IP, so this must match reality: 1 for
+  # this bundle (nginx only), 2 when another proxy fronts it (Cloudflare Tunnel,
+  # Traefik, a load balancer). Too high and callers can forge their own IP.
+  TRUST_PROXY: ${TRUST_PROXY:-1}
 
 services:
   postgres:
