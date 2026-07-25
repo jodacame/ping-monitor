@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CHECK_INTERVALS_SECONDS, MAX_RETRY_THRESHOLD } from '@ping/core';
+import { isValidIpOrCidr } from '../util/ip.js';
 
 /** Request validation schemas. One source of truth for every endpoint's input. */
 
@@ -31,7 +32,19 @@ export const createApiKeySchema = z.object({
   name: z.string().trim().min(1).max(60),
   scopes: z.array(z.enum(['read', 'write'])).min(1).optional(),
   expiresInDays: z.number().int().positive().max(3650).optional(),
-  allowedIps: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
+  // Validated here so a typo cannot be stored as a rule that never matches (a
+  // key dead on arrival) or, worse, one that matches everything.
+  allowedIps: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(64)
+        .refine(isValidIpOrCidr, 'Must be an IPv4/IPv6 address or CIDR block'),
+    )
+    .max(50)
+    .optional(),
 });
 
 const monitorType = z.enum(['http', 'tcp', 'icmp']);

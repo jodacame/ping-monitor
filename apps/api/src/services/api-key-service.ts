@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { NotFoundError, ValidationError, newId } from '@ping/core';
 import { type ApiKeyAuth, type ApiKeyRecord, ApiKeyRepository, type Database } from '@ping/db';
+import { ipAllowed } from '../util/ip.js';
 
 const PREFIX = 'pk_';
 const VALID_SCOPES = ['read', 'write'] as const;
@@ -12,31 +13,6 @@ function hashKey(key: string): string {
 
 export function isApiKey(token: string): boolean {
   return token.startsWith(PREFIX);
-}
-
-// --- IP allowlist matching (exact + IPv4 CIDR) -------------------------------
-
-function ipToInt(ip: string): number | null {
-  const parts = ip.split('.').map(Number);
-  if (parts.length !== 4 || parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)) return null;
-  return (((parts[0]! << 24) >>> 0) + (parts[1]! << 16) + (parts[2]! << 8) + parts[3]!) >>> 0;
-}
-
-function ipInCidr(ip: string, cidr: string): boolean {
-  const [range, bitsStr] = cidr.split('/');
-  const bits = Number(bitsStr);
-  const ipInt = ipToInt(ip);
-  const rangeInt = range ? ipToInt(range) : null;
-  if (ipInt === null || rangeInt === null || Number.isNaN(bits) || bits < 0 || bits > 32) return false;
-  const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
-  return (ipInt & mask) === (rangeInt & mask);
-}
-
-function ipAllowed(ip: string, list: string[]): boolean {
-  const normalized = ip.startsWith('::ffff:') ? ip.slice(7) : ip;
-  return list.some((entry) =>
-    entry.includes('/') ? ipInCidr(normalized, entry) : entry === normalized || entry === ip,
-  );
 }
 
 export function apiKeyToDto(key: ApiKeyRecord): Record<string, unknown> {
@@ -102,6 +78,11 @@ export class ApiKeyService {
    * Verify a presented key from a given client IP. Returns the authorized
    * workspace + scopes, or null if invalid/expired/IP-blocked.
    */
+  /** Whether a previously verified key is still usable (not revoked/expired). */
+  async isActive(keyId: string): Promise<boolean> {
+    return new ApiKeyRepository(this.db).isActive(keyId);
+  }
+
   async verify(key: string, ip: string): Promise<ApiKeyAuth | null> {
     if (!isApiKey(key)) return null;
     const repo = new ApiKeyRepository(this.db);
