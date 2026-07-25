@@ -25,7 +25,7 @@ export function MonitorDetailPage() {
     <AppShell
       title={
         <div className="flex min-w-0 items-center gap-2">
-          <IconButton label="Back to monitors" onClick={() => navigate('/')}>
+          <IconButton label="Back to monitors" onClick={() => void navigate('/')}>
             <ArrowLeft size={18} />
           </IconButton>
           <div className="min-w-0">
@@ -46,8 +46,8 @@ export function MonitorDetailPage() {
           <MonitorDetail
             monitor={monitor}
             workspaceId={workspaceId}
-            onEdit={() => navigate(`/monitors/${id}/edit`)}
-            onClose={() => navigate('/')}
+            onEdit={() => void navigate(`/monitors/${id}/edit`)}
+            onClose={() => void navigate('/')}
           />
         ) : (
           <EmptyState title="Monitor not found" description="It may have been deleted." />

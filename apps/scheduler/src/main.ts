@@ -40,7 +40,7 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info({ signal }, 'shutting down scheduler');
-    await scheduler.stop();
+    scheduler.stop();
     redis.disconnect();
     await db.close();
     process.exit(0);

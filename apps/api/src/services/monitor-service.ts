@@ -217,7 +217,9 @@ export class MonitorService {
       return {};
     }
 
-    throw new ValidationError(`Monitor type "${type}" is not supported`);
+    // Defensive: `type` is `never` here for the known MonitorType union, but the
+    // value can still come from outside the type system (DB row, API payload).
+    throw new ValidationError(`Monitor type "${String(type)}" is not supported`);
   }
 
   private async resolveRegions(requested: number[]): Promise<number[]> {

@@ -38,7 +38,7 @@ function tooltipPlugin(): uPlot.Plugin {
           tip.style.display = 'none';
           return;
         }
-        const time = new Date((x as number) * 1000).toLocaleString(undefined, {
+        const time = new Date((x) * 1000).toLocaleString(undefined, {
           month: 'short',
           day: 'numeric',
           hour: '2-digit',
@@ -46,10 +46,10 @@ function tooltipPlugin(): uPlot.Plugin {
         });
         tip.innerHTML =
           `<div class="text-muted">${time}</div>` +
-          `<div class="font-semibold text-fg">${formatLatency(y as number)}</div>`;
+          `<div class="font-semibold text-fg">${formatLatency(y)}</div>`;
         tip.style.display = 'block';
-        const left = u.valToPos(x as number, 'x');
-        const top = u.valToPos(y as number, 'y');
+        const left = u.valToPos(x, 'x');
+        const top = u.valToPos(y, 'y');
         tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px) translate(-50%, -130%)`;
       },
     },

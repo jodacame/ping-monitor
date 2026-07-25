@@ -1,4 +1,5 @@
-import { CheckErrorKind, MonitorStatus } from '@ping/core';
+import type { CheckErrorKind } from '@ping/core';
+import { MonitorStatus } from '@ping/core';
 import type { Queryable } from '../pool.js';
 import { decodeErrorKind, encodeMonitorStatus } from '../codecs.js';
 

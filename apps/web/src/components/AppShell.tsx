@@ -169,7 +169,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <button
             key={item.label}
             onClick={() => {
-              navigate(item.to);
+              void navigate(item.to);
               onNavigate?.();
             }}
             className={cn(

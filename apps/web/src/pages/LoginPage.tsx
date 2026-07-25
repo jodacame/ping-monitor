@@ -19,7 +19,7 @@ export function LoginPage({ canRegister = false }: { canRegister?: boolean }) {
     setError(null);
     try {
       await login(email, password);
-      navigate('/', { replace: true });
+      void navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Unable to sign in. Please try again.');
     } finally {
@@ -42,7 +42,7 @@ export function LoginPage({ canRegister = false }: { canRegister?: boolean }) {
         ) : null
       }
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
         {error && (
           <div className="rounded-lg border border-down/20 bg-down/10 px-3 py-2 text-sm text-down">
             {error}

@@ -21,7 +21,7 @@ export function MonitorFormPage() {
   });
 
   const back = (): void => {
-    navigate(editing ? `/monitors/${id}` : '/');
+    void navigate(editing ? `/monitors/${id}` : '/');
   };
 
   return (

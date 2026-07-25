@@ -36,6 +36,12 @@ export default tseslint.config(
     // Config and script files may use console and are not part of the TS program.
     files: ['**/*.config.{js,ts}', '**/scripts/**'],
     ...tseslint.configs.disableTypeChecked,
-    rules: { 'no-console': 'off' },
+    rules: {
+      // Spread first: a bare `rules` object would replace disableTypeChecked's
+      // own rules wholesale, leaving type-aware rules on for files that have no
+      // type information — which fails the whole lint run.
+      ...tseslint.configs.disableTypeChecked.rules,
+      'no-console': 'off',
+    },
   },
 );

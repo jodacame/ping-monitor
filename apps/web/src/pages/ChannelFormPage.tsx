@@ -14,14 +14,14 @@ export function ChannelFormPage() {
 
   const done = (): void => {
     void queryClient.invalidateQueries({ queryKey: ['channels', workspaceId] });
-    navigate('/alerts');
+    void navigate('/alerts');
   };
 
   return (
     <AppShell
       title={
         <div className="flex items-center gap-2">
-          <IconButton label="Back to alerts" onClick={() => navigate('/alerts')}>
+          <IconButton label="Back to alerts" onClick={() => void navigate('/alerts')}>
             <ArrowLeft size={18} />
           </IconButton>
           <span className="text-lg font-semibold text-fg">Add channel</span>
@@ -29,7 +29,7 @@ export function ChannelFormPage() {
       }
     >
       <div className="mx-auto max-w-2xl p-4 sm:p-6">
-        <ChannelForm workspaceId={workspaceId} onCancel={() => navigate('/alerts')} onCreated={done} />
+        <ChannelForm workspaceId={workspaceId} onCancel={() => void navigate('/alerts')} onCreated={done} />
       </div>
     </AppShell>
   );

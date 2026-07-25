@@ -60,7 +60,7 @@ export function MonitorForm({
   const isHttp = type === 'http';
   const isTcp = type === 'tcp';
 
-  const regionsQuery = useQuery({ queryKey: ['regions'], queryFn: api.listRegions });
+  const regionsQuery = useQuery({ queryKey: ['regions'], queryFn: () => api.listRegions() });
   const groupsQuery = useQuery({
     queryKey: ['groups', workspaceId],
     queryFn: () => api.listGroups(workspaceId),

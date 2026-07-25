@@ -43,7 +43,7 @@ export class Scheduler {
     this.logger.info({ tickMs: this.config.tickMs }, 'scheduler started');
   }
 
-  async stop(): Promise<void> {
+  stop(): void {
     this.running = false;
     if (this.tickTimer) clearTimeout(this.tickTimer);
     if (this.maintenanceTimer) clearInterval(this.maintenanceTimer);

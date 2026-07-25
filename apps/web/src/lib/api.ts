@@ -133,7 +133,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : undefined;
+  const data: unknown = text ? JSON.parse(text) : undefined;
 
   if (!res.ok) {
     const err = (data as { error?: { message?: string; code?: string; details?: unknown } })?.error;

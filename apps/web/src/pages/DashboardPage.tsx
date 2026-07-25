@@ -107,7 +107,7 @@ export function DashboardPage() {
   const items = monitors.data?.items ?? [];
   const groupList = groups.data ?? [];
   const openMonitor = (m: Monitor): void => {
-    navigate(`/monitors/${m.id}`);
+    void navigate(`/monitors/${m.id}`);
   };
 
   return (
@@ -121,7 +121,7 @@ export function DashboardPage() {
       actions={
         <Button
           leadingIcon={<Plus size={16} />}
-          onClick={() => navigate('/monitors/new')}
+          onClick={() => void navigate('/monitors/new')}
           className="hidden sm:inline-flex"
         >
           New monitor
@@ -208,7 +208,7 @@ export function DashboardPage() {
                 }
                 action={
                   !search && status === 'all' ? (
-                    <Button leadingIcon={<Plus size={16} />} onClick={() => navigate('/monitors/new')}>
+                    <Button leadingIcon={<Plus size={16} />} onClick={() => void navigate('/monitors/new')}>
                       New monitor
                     </Button>
                   ) : undefined
@@ -232,7 +232,7 @@ export function DashboardPage() {
       </div>
 
       <button
-        onClick={() => navigate('/monitors/new')}
+        onClick={() => void navigate('/monitors/new')}
         aria-label="New monitor"
         className="fixed bottom-6 right-6 z-20 grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-fg shadow-xl shadow-primary/30 transition-transform hover:scale-105 active:scale-95 sm:hidden"
       >

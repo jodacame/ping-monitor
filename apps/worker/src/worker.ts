@@ -1,5 +1,5 @@
 import type { Logger } from '@ping/config';
-import { InfraRepository, type ResultsRepository } from '@ping/db';
+import type { InfraRepository, ResultsRepository } from '@ping/db';
 import type { CheckConsumer } from '@ping/queue';
 import type { ResultBuffer } from './result-buffer.js';
 

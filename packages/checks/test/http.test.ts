@@ -11,7 +11,7 @@ const ctx = (config: Record<string, unknown> = {}) => ({
 function mockFetch(status: number, body = ''): void {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => new Response(body, { status })),
+    vi.fn(() => Promise.resolve(new Response(body, { status }))),
   );
 }
 
@@ -71,9 +71,9 @@ describe('HttpCheckExecutor', () => {
   it('classifies network errors as down', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => {
-        throw Object.assign(new Error('fail'), { cause: { code: 'ENOTFOUND' } });
-      }),
+      vi.fn(() =>
+        Promise.reject(Object.assign(new Error('fail'), { cause: { code: 'ENOTFOUND' } })),
+      ),
     );
     const out = await executor.execute(ctx());
     expect(out.up).toBe(false);

@@ -1,5 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import type { ConnectorType } from '@ping/notifications';
 import type { AppContext } from '../context.js';
 import type { AuthGuards } from '../plugins/auth-guards.js';
 import { channelToDto } from '../services/channel-service.js';
@@ -27,7 +26,7 @@ export function registerChannelRoutes(
   app.post(base, { preHandler }, async (request, reply) => {
     const body = createChannelSchema.parse(request.body);
     const channel = await ctx.channels.create(request.workspace!.id, {
-      type: body.type as ConnectorType,
+      type: body.type,
       name: body.name,
       config: body.config,
       ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),

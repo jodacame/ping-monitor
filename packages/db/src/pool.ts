@@ -72,7 +72,7 @@ export class Database implements Queryable {
 
   /** Liveness probe used by health endpoints. */
   async healthCheck(): Promise<boolean> {
-    const res = await this.pool.query('SELECT 1 AS ok');
+    const res = await this.pool.query<{ ok: number }>('SELECT 1 AS ok');
     return res.rows[0]?.ok === 1;
   }
 

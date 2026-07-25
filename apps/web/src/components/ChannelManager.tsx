@@ -347,7 +347,7 @@ export function ChannelManager({ workspaceId }: { workspaceId: string }) {
         <p className="text-sm text-muted">
           Create channels here, then pick which ones each monitor uses.
         </p>
-        <Button leadingIcon={<Plus size={16} />} onClick={() => navigate('/alerts/new')}>
+        <Button leadingIcon={<Plus size={16} />} onClick={() => void navigate('/alerts/new')}>
           Add channel
         </Button>
       </div>
@@ -373,7 +373,7 @@ export function ChannelManager({ workspaceId }: { workspaceId: string }) {
           title="No alert channels yet"
           description="Add email, Telegram, or a webhook to get notified the moment a monitor goes down."
           action={
-            <Button leadingIcon={<Plus size={16} />} onClick={() => navigate('/alerts/new')}>
+            <Button leadingIcon={<Plus size={16} />} onClick={() => void navigate('/alerts/new')}>
               Add channel
             </Button>
           }

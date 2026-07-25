@@ -70,9 +70,7 @@ export function startEventBroadcaster(
   void (async () => {
     while (running) {
       try {
-        const res = (await redis.xread('BLOCK', 5000, 'STREAMS', stream, lastId)) as
-          | Array<[string, Array<[string, string[]]>]>
-          | null;
+        const res = await redis.xread('BLOCK', 5000, 'STREAMS', stream, lastId);
         if (!res) continue;
         for (const [, entries] of res) {
           for (const [id, fields] of entries) {
