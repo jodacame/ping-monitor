@@ -28,6 +28,12 @@ function apiKeyRateLimitBucket(authorization: string | undefined): string | null
 /** Version reported by the OpenAPI document. */
 const API_VERSION = '0.1.0';
 
+/**
+ * Subprotocol a client may offer alongside its API key. Offering it lets the
+ * server negotiate a protocol without ever echoing the credential back.
+ */
+const WS_SUBPROTOCOL = 'ping-monitor-v1';
+
 /** Max concurrent WebSocket connections per workspace (per process). */
 const WS_MAX_PER_WORKSPACE = 50;
 /** Heartbeat interval; unresponsive sockets are terminated. */
@@ -133,7 +139,35 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
-  await app.register(websocket);
+  await app.register(websocket, {
+    options: {
+      /**
+       * Choose the negotiated subprotocol ourselves.
+       *
+       * The default echoes back the first protocol the client offered, and
+       * since the API key travels as a subprotocol that reflected the
+       * credential in the Sec-WebSocket-Protocol *response* header — visible in
+       * devtools and to any proxy logging response headers, which undercuts the
+       * reason for using the subprotocol in the first place.
+       *
+       * A client that also offers the sentinel gets that selected back, so the
+       * key is never echoed. This is the form to use.
+       *
+       * A client offering only the key still gets the key echoed. That is not
+       * an oversight: RFC 6455 lets the server select only from what the client
+       * offered, and browsers fail the connection when a subprotocol was
+       * offered and none was selected (verified in Chrome). Returning `false`
+       * here would break every existing integration on upgrade, so the old
+       * behaviour is preserved and the documentation steers clients to the
+       * sentinel.
+       */
+      handleProtocols: (protocols: Set<string>) => {
+        if (protocols.has(WS_SUBPROTOCOL)) return WS_SUBPROTOCOL;
+        const [first] = protocols;
+        return first ?? false;
+      },
+    },
+  });
 
   /** Sockets currently awaiting their API-key lookup (see WS_MAX_PENDING_AUTH). */
   let pendingAuth = 0;
@@ -165,8 +199,16 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
       // subprotocol (preferred — never logged in URLs) or a ?apiKey= param.
       instance.get('/ws', { websocket: true }, (socket, request) => {
         const ws = socket as unknown as WsSocket;
+        // Pick the offered protocol that is actually a key, so a client may
+        // send the sentinel alongside it in either order.
         const proto = request.headers['sec-websocket-protocol'];
-        const fromProto = typeof proto === 'string' ? proto.split(',')[0]?.trim() : undefined;
+        const fromProto =
+          typeof proto === 'string'
+            ? proto
+                .split(',')
+                .map((value) => value.trim())
+                .find((value) => isApiKey(value))
+            : undefined;
         const key = fromProto || (request.query as { apiKey?: string }).apiKey || '';
 
         // The upgrade completes before the key can be checked, so unauthenticated

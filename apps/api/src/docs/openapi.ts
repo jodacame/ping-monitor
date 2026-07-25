@@ -512,6 +512,42 @@ const paths: Record<string, Json> = {
       },
     },
   },
+  '/auth/whoami': {
+    get: {
+      tags: ['Authentication'],
+      summary: 'Identify the calling credential',
+      description:
+        'Works with either an API key or a user token. With a key it returns that key’s workspace and scopes, which is how an integration discovers the workspace id it needs for every other call. With a user token it returns the user and their workspaces.',
+      security: anyAuth,
+      responses: {
+        200: json('The calling principal', {
+          oneOf: [
+            {
+              type: 'object',
+              title: 'API key',
+              properties: {
+                principal: { type: 'string', enum: ['api_key'] },
+                workspaceId: { type: 'string' },
+                scopes: array({ type: 'string', enum: ['read', 'write'] }),
+                expiresAt: nullableDateTime,
+              },
+            },
+            {
+              type: 'object',
+              title: 'User',
+              properties: {
+                principal: { type: 'string', enum: ['user'] },
+                user: ref('User'),
+                workspaces: array(ref('Workspace')),
+              },
+            },
+          ],
+        }),
+        ...errors(401),
+      },
+    },
+  },
+
   '/auth/me': {
     get: {
       tags: ['Authentication'],
@@ -579,9 +615,11 @@ const paths: Record<string, Json> = {
     get: {
       tags: ['Dashboard'],
       summary: 'Uptime, latency and incident count over the last 24h',
+      description:
+        'Always the last 24 hours; there is no window parameter. Passing `window` returns 400 rather than silently ignoring it — use /monitors/{monitorId}/stats for other periods.',
       security: anyAuth,
       parameters: [workspaceParam],
-      responses: { 200: json('Insights', ref('Insights')), ...errors(401, 403) },
+      responses: { 200: json('Insights', ref('Insights')), ...errors(400, 401, 403) },
     },
   },
 
@@ -905,7 +943,7 @@ const paths: Record<string, Json> = {
       tags: ['API keys'],
       summary: 'Revoke an API key',
       description:
-        'User sessions only. Takes effect immediately for REST calls; an already-open WebSocket stays connected until it reconnects.',
+        'User sessions only. Takes effect immediately for REST calls; an open WebSocket re-checks its key every minute and is dropped once it is revoked.',
       security: userAuth,
       parameters: [workspaceParam, pathParam('keyId', 'Public API key id.')],
       responses: { 204: { description: 'Revoked' }, ...errors(401, 403, 404) },
@@ -980,13 +1018,18 @@ export function buildOpenApiDocument(version: string): OpenAPIV3.Document {
         '## Real-time events (WebSocket)',
         '',
         'Connect to `/api/ws`. **An API key is required — a user access token is rejected.**',
-        'Prefer the subprotocol so the credential never lands in a URL or an access log:',
+        'Send the key as a subprotocol so it never lands in a URL or an access log, alongside',
+        'the `ping-monitor-v1` sentinel:',
         '',
         '```js',
-        'const ws = new WebSocket("wss://your-host/api/ws", ["pk_your_key"]);',
+        'const ws = new WebSocket("wss://your-host/api/ws", ["ping-monitor-v1", "pk_your_key"]);',
         '```',
         '',
-        'The `?apiKey=` query parameter also works but is discouraged for that reason.',
+        'The server negotiates `ping-monitor-v1` and **never echoes the key back** — offering the',
+        'key alone still works, but then no subprotocol is negotiated at all.',
+        '',
+        'The `?apiKey=` query parameter also works but is discouraged: it puts the credential in',
+        'a URL, where proxies and browser history keep it.',
         '',
         'Frames are JSON and always carry a `type`:',
         '',
@@ -1000,7 +1043,8 @@ export function buildOpenApiDocument(version: string): OpenAPIV3.Document {
         '',
         'You only ever receive events for the key’s own workspace. The server sends WebSocket',
         'pings every 30s and drops unresponsive sockets, and allows 50 concurrent connections per',
-        'workspace per API process. Revoking a key does not close sockets that are already open.',
+        'workspace per API process. An open socket re-checks its key every minute, so revoking a',
+        'key also drops the connections using it.',
       ].join('\n'),
     },
     servers: [{ url: '/api', description: 'This instance' }],

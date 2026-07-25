@@ -40,6 +40,31 @@ export function registerAuthRoutes(
     return { ok: true };
   });
 
+  /**
+   * Who is calling, for either kind of credential.
+   *
+   * An integration is handed an API key and nothing else, and every workspace
+   * endpoint needs a workspace id. `/auth/me` and `/workspaces` are user-only,
+   * so without this a key holder had no supported way to discover their own
+   * workspace — the only hint was the WebSocket handshake.
+   */
+  app.get('/auth/whoami', { preHandler: [guards.authenticate] }, async (request) => {
+    if (request.apiKey) {
+      const key = request.apiKey;
+      // Only what the holder needs to operate, and nothing that identifies the
+      // key row itself: the caller already has the credential, so this must not
+      // become a way to learn anything extra about the workspace or its keys.
+      return {
+        principal: 'api_key' as const,
+        workspaceId: key.workspacePublicId,
+        scopes: key.scopes,
+        expiresAt: key.expiresAt,
+      };
+    }
+    const { user, workspaces } = await ctx.auth.me(request.authUser!.userId);
+    return { principal: 'user' as const, user, workspaces };
+  });
+
   // Both endpoints act on a person, not a workspace: an API key has no user
   // behind it, so `requireUser` turns that into a 403 instead of a 500.
   app.get('/auth/me', { preHandler: [guards.authenticate, guards.requireUser] }, async (request) => {

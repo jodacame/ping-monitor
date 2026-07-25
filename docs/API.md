@@ -68,6 +68,19 @@ Every resource belongs to a workspace, so almost every path starts with
 `/workspaces/{workspaceId}`. The id is the workspace's **public id**, not its
 slug or name.
 
+### If you were handed an API key
+
+An integration usually receives a key and nothing else. Ask the API who you are:
+
+```bash
+curl -s https://your-host/api/auth/whoami -H "Authorization: Bearer pk_xxx"
+# -> { "principal": "api_key", "workspaceId": "01J…", "scopes": ["read"], "expiresAt": null }
+```
+
+That is the supported way to discover the workspace id a key belongs to. The
+same endpoint works with a user token and then returns the user and their
+workspaces, so a client can handle both credential types with one call.
+
 ### Getting your first workspace id
 
 ```bash
@@ -191,12 +204,11 @@ than blocking traffic.
 Connect to `/api/ws` to receive status changes the moment they happen, with no
 polling.
 
-**An API key is required — a user access token is rejected.** Send it as the
-WebSocket **subprotocol** so the credential never appears in a URL, browser
-history or access log:
+**An API key is required — a user access token is rejected.** Send it as a
+WebSocket **subprotocol**, together with the `ping-monitor-v1` sentinel:
 
 ```js
-const ws = new WebSocket("wss://your-host/api/ws", ["pk_your_key"]);
+const ws = new WebSocket("wss://your-host/api/ws", ["ping-monitor-v1", "pk_your_key"]);
 
 ws.onmessage = (e) => {
   const msg = JSON.parse(e.data);
@@ -214,8 +226,14 @@ ws.onmessage = (e) => {
 };
 ```
 
-The `?apiKey=pk_…` query parameter is also accepted, but it leaks the key into
-logs — prefer the subprotocol.
+**Send the sentinel.** A WebSocket server may only select a protocol the client
+offered, so when the key is the *only* thing offered the server has to echo it
+back — putting the key in the `Sec-WebSocket-Protocol` **response** header,
+where devtools and any proxy logging response headers can see it. Offer the
+sentinel and the server negotiates that instead, and the key is never echoed.
+
+The `?apiKey=pk_…` query parameter is also accepted, but it puts the credential
+in a URL, where proxies and browser history keep it. Prefer the subprotocol.
 
 ### Frames
 
@@ -260,8 +278,9 @@ arrive on the same socket as the events.
   `GET /workspaces/{id}/monitors` always returns the current truth.
 - Events are broadcast live and are **not** replayed. A client that reconnects
   should re-read current state rather than expect a backlog.
-- **Revoking a key does not close sockets that are already open.** It stops any
-  new connection. Restart the API if you need to cut a live stream immediately.
+- **Revoking a key closes open sockets too.** A connection re-checks its key
+  every minute and is dropped once the key is revoked or expires, so a rotated
+  credential stops streaming within about a minute without restarting anything.
 
 ---
 

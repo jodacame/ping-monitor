@@ -180,6 +180,56 @@ describe.skipIf(!live)('documentation conformance (integration)', () => {
     });
   });
 
+  describe('credential discovery', () => {
+    it('tells an API key which workspace it belongs to', async () => {
+      // An integration is handed a key and nothing else; without this it has no
+      // supported way to learn the workspace id every other call needs.
+      const res = await call<Record<string, unknown>>('/auth/whoami', { token: key });
+      expect(res.status).toBe(200);
+      expect(res.json.principal).toBe('api_key');
+      expect(res.json.workspaceId).toBe(workspaceId);
+      expect(res.json.scopes).toEqual(['read', 'write']);
+      expect(res.json).toHaveProperty('expiresAt');
+    });
+
+    it('does not disclose anything identifying the key row itself', async () => {
+      const res = await call<Record<string, unknown>>('/auth/whoami', { token: key });
+      for (const leaked of ['keyId', 'key', 'prefix', 'allowedIps', 'keyHash']) {
+        expect(res.json, `whoami must not expose ${leaked}`).not.toHaveProperty(leaked);
+      }
+    });
+
+    it('describes a user session for a user token', async () => {
+      const res = await call<Record<string, unknown>>('/auth/whoami', { token });
+      expect(res.json.principal).toBe('user');
+      expect(res.json).toHaveProperty('user');
+      expect(res.json).toHaveProperty('workspaces');
+    });
+
+    it('still requires a credential', async () => {
+      expect((await call('/auth/whoami')).status).toBe(401);
+    });
+  });
+
+  describe('insights', () => {
+    it('rejects a window instead of ignoring it', async () => {
+      // Silently ignoring a parameter is worse than refusing it: the caller
+      // cannot tell they are reading a different period than they asked for.
+      const res = await call<{ error: { code: string } }>(
+        `/workspaces/${workspaceId}/insights?window=7d`,
+        { token: key },
+      );
+      expect(res.status).toBe(400);
+      expect(res.json.error.code).toBe('validation_error');
+    });
+
+    it('still accepts unrelated query parameters', async () => {
+      // Cache-busting suffixes are common and must not break.
+      const res = await call(`/workspaces/${workspaceId}/insights?_=123456`, { token: key });
+      expect(res.status).toBe(200);
+    });
+  });
+
   describe('errors use the documented envelope and codes', () => {
     it('maps each status to its documented code', async () => {
       const notFound = await call<{ error: { code: string } }>(

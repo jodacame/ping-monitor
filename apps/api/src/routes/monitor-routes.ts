@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { ValidationError } from '@ping/core';
 import type { ListMonitorsFilter } from '@ping/db';
 import type { AppContext } from '../context.js';
 import type { AuthGuards } from '../plugins/auth-guards.js';
@@ -33,6 +34,15 @@ export function registerMonitorRoutes(
   });
 
   app.get(`${base}/insights`, { preHandler }, async (request) => {
+    // Insights are always the last 24 hours — `incidents24h` says so in its very
+    // name. Accepting a `window` and quietly ignoring it left callers believing
+    // they were reading a different period, so say no instead. Other query
+    // parameters are left alone; cache-busting suffixes are common and harmless.
+    if ((request.query as { window?: string }).window !== undefined) {
+      throw new ValidationError(
+        'Insights always cover the last 24 hours and take no window. Use /monitors/{monitorId}/stats?window= for other periods.',
+      );
+    }
     return ctx.stats.workspaceInsights(request.workspace!.id);
   });
 

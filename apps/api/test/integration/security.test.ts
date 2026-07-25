@@ -141,6 +141,20 @@ describe.skipIf(!live)('security (integration)', () => {
       expect(frame.workspaceId).toBe(workspaceId);
     });
 
+    it('negotiates the sentinel so the key is never echoed back', async () => {
+      // Offering the key alone forces the server to echo it, since a server may
+      // only select a protocol the client offered — which puts the credential in
+      // a response header. The sentinel exists to avoid that.
+      const frame = await firstWsFrame('/ws', ['ping-monitor-v1', rwKey]);
+      expect(frame.type).toBe('connected');
+    });
+
+    it('still accepts a client that offers only the key', async () => {
+      // Older integrations do this, and browsers fail a handshake when a
+      // subprotocol was offered and none selected — so this must keep working.
+      expect((await firstWsFrame('/ws', [rwKey])).type).toBe('connected');
+    });
+
     it('refuses a user access token', async () => {
       expect((await firstWsFrame('/ws', [token])).type).toBe('error');
     });

@@ -1,4 +1,4 @@
-import type { WorkspaceRole } from '@ping/db';
+import type { ApiKeyAuth, WorkspaceRole } from '@ping/db';
 import type { AppContext } from './context.js';
 
 /** Authenticated principal attached to a request after the auth guard runs. */
@@ -22,12 +22,8 @@ declare module 'fastify' {
   interface FastifyRequest {
     authUser?: AuthUser;
     workspace?: WorkspaceContext;
-    apiKey?: {
-      workspaceId: string;
-      workspacePublicId: string;
-      keyId: string;
-      scopes: string[];
-      allowedIps: string[] | null;
-    };
+    // Reuses the repository's type rather than restating its shape, so the two
+    // cannot drift apart.
+    apiKey?: ApiKeyAuth;
   }
 }

@@ -20,6 +20,8 @@ export interface ApiKeyAuth {
   readonly keyId: string;
   readonly scopes: string[];
   readonly allowedIps: string[] | null;
+  /** When the key stops working, or null if it never expires. */
+  readonly expiresAt: Date | null;
 }
 
 interface KeyRow {
@@ -102,8 +104,10 @@ export class ApiKeyRepository {
       workspace_public_id: string;
       scopes: string[];
       allowed_ips: string[] | null;
+      expires_at: Date | null;
     }>(
-      `SELECT k.id, k.workspace_id, w.public_id AS workspace_public_id, k.scopes, k.allowed_ips
+      `SELECT k.id, k.workspace_id, w.public_id AS workspace_public_id, k.scopes, k.allowed_ips,
+              k.expires_at
        FROM api_keys k JOIN workspaces w ON w.id = k.workspace_id
        WHERE k.key_hash = $1 AND k.revoked_at IS NULL
          AND (k.expires_at IS NULL OR k.expires_at > now())`,
@@ -117,6 +121,7 @@ export class ApiKeyRepository {
           workspacePublicId: row.workspace_public_id,
           scopes: row.scopes,
           allowedIps: row.allowed_ips,
+          expiresAt: row.expires_at,
         }
       : null;
   }
