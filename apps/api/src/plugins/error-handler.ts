@@ -8,6 +8,16 @@ import type { AppContext } from '../context.js';
  * consistent JSON envelopes `{ error: { code, message, details? } }`, and hides
  * internals behind a generic 500 while logging the real cause.
  */
+/**
+ * Drop the query string before a URL reaches the logs or a response body. The
+ * WebSocket endpoint accepts `?apiKey=`, so echoing a raw URL would write a live
+ * credential to disk.
+ */
+function safeUrl(url: string): string {
+  const query = url.indexOf('?');
+  return query === -1 ? url : `${url.slice(0, query)}?<redacted>`;
+}
+
 /** Map a non-domain HTTP status onto the public error-code vocabulary. */
 function codeForStatus(status: number): ErrorCode {
   switch (status) {
@@ -61,7 +71,7 @@ export function registerErrorHandler(app: FastifyInstance, ctx: AppContext): voi
       return;
     }
 
-    ctx.logger.error({ err: error, url: request.url }, 'unhandled request error');
+    ctx.logger.error({ err: error, url: safeUrl(request.url) }, 'unhandled request error');
     void reply.status(500).send({
       error: { code: ErrorCode.Internal, message: 'Internal server error' },
     });
@@ -69,7 +79,10 @@ export function registerErrorHandler(app: FastifyInstance, ctx: AppContext): voi
 
   app.setNotFoundHandler((request, reply) => {
     void reply.status(404).send({
-      error: { code: ErrorCode.NotFound, message: `Route ${request.method} ${request.url} not found` },
+      error: {
+        code: ErrorCode.NotFound,
+        message: `Route ${request.method} ${safeUrl(request.url)} not found`,
+      },
     });
   });
 }
