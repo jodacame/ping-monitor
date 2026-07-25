@@ -20,6 +20,7 @@ import type { Workspace } from '../lib/types';
 import { api } from '../lib/api';
 import { Button, Field, IconButton, Input, Modal } from './ui';
 import { Brand } from './Brand';
+import { GithubStarButton } from './GithubStarButton';
 
 const NAV = [
   { icon: LayoutDashboard, label: 'Dashboard', to: '/' },
@@ -250,7 +251,10 @@ export function AppShell({
               title
             )}
           </div>
-          <div className="flex items-center gap-2">{actions}</div>
+          <div className="flex items-center gap-2">
+            <GithubStarButton />
+            {actions}
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto">{children}</main>

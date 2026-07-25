@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Github } from 'lucide-react';
 import { ApiError } from '../lib/api';
+import { GITHUB_REPO_URL } from '../lib/constants';
 import { useAuth } from '../lib/auth';
 import { Button, Field, Input } from '../components/ui';
 import { AuthLayout } from './AuthLayout';
@@ -32,14 +34,27 @@ export function LoginPage({ canRegister = false }: { canRegister?: boolean }) {
       title="Welcome back"
       subtitle="Sign in to keep an eye on your services."
       footer={
-        canRegister ? (
-          <>
-            Don&apos;t have an account?{' '}
-            <Link to="/register" className="font-medium text-primary hover:underline">
-              Create one
-            </Link>
-          </>
-        ) : null
+        <>
+          {canRegister && (
+            <>
+              Don&apos;t have an account?{' '}
+              <Link to="/register" className="font-medium text-primary hover:underline">
+                Create one
+              </Link>
+            </>
+          )}
+          <div className={canRegister ? 'mt-4' : undefined}>
+            <a
+              href={GITHUB_REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-fg"
+            >
+              <Github size={13} />
+              View on GitHub
+            </a>
+          </div>
+        </>
       }
     >
       <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">

@@ -157,7 +157,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   });
 
   await app.register(
-    async (instance) => {
+    (instance, _opts, done) => {
       registerRoutes(instance, ctx);
       instance.get('/openapi.json', () => document);
 
@@ -250,6 +250,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
           });
         });
       });
+      done();
     },
     { prefix: '/api' },
   );

@@ -48,6 +48,18 @@ export function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
+/** Short count for badges: 950 -> "950", 1200 -> "1.2k", 12300 -> "12k". */
+export function formatCompactNumber(value: number): string {
+  if (value < 1000) return String(Math.round(value));
+  const thousands = value / 1000;
+  if (thousands < 10) {
+    const rounded = Math.round(thousands * 10) / 10;
+    return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}k`;
+  }
+  if (thousands < 1000) return `${Math.round(thousands)}k`;
+  return `${(Math.round(value / 100000) / 10).toFixed(1)}m`;
+}
+
 /** A friendly label for a monitor's target (host without scheme when long). */
 export function prettyTarget(target: string): string {
   try {
