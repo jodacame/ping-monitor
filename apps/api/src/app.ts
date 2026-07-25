@@ -138,20 +138,27 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   /** Sockets currently awaiting their API-key lookup (see WS_MAX_PENDING_AUTH). */
   let pendingAuth = 0;
 
+  // Interactive API reference. The document is built from the same zod schemas
+  // the handlers validate with, and `test/openapi.test.ts` fails if a route is
+  // missing from it, so it cannot drift. The API shape is not a secret (this is
+  // open source), so it needs no authentication.
+  //
+  // Registered at the root with the full '/api/docs' prefix rather than inside
+  // the '/api' scope below: swagger-ui builds its asset URLs from routePrefix
+  // alone and does not know about an enclosing prefix, so mounting it inside
+  // would emit '/docs/static/...'. Behind the bundled nginx, which only proxies
+  // '/api/', those URLs fall through to the SPA and the browser receives HTML
+  // where it expects JavaScript.
+  const document = buildOpenApiDocument(API_VERSION);
+  await app.register(swagger, { mode: 'static', specification: { document } });
+  await app.register(swaggerUi, {
+    routePrefix: '/api/docs',
+    uiConfig: { docExpansion: 'list', deepLinking: true },
+  });
+
   await app.register(
     async (instance) => {
       registerRoutes(instance, ctx);
-
-      // Interactive API reference. The document is built from the same zod
-      // schemas the handlers validate with, and `test/openapi.test.ts` fails if
-      // a route is missing from it, so it cannot drift. The API shape is not a
-      // secret (this is open source), so it needs no authentication.
-      const document = buildOpenApiDocument(API_VERSION);
-      await instance.register(swagger, { mode: 'static', specification: { document } });
-      await instance.register(swaggerUi, {
-        routePrefix: '/docs',
-        uiConfig: { docExpansion: 'list', deepLinking: true },
-      });
       instance.get('/openapi.json', () => document);
 
       // Real-time event stream. Auth via API key, sent either as the WebSocket

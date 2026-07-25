@@ -40,6 +40,32 @@ describe.skipIf(!live)('documentation conformance (integration)', () => {
       expect((await call('/docs')).status).toBe(200);
     });
 
+    it('serves the docs assets as assets, not as the SPA fallback', async () => {
+      // Regression: swagger-ui builds asset URLs from its routePrefix alone. When
+      // it was mounted inside the '/api' scope it emitted '/docs/static/...',
+      // which the bundled nginx does not proxy — the browser got index.html and
+      // the page stayed blank with "Unexpected token '<'". Run this against the
+      // full stack (through nginx) for it to be meaningful.
+      const page = await call<string>('/docs');
+      expect(page.status).toBe(200);
+
+      const assets = [...String(page.json).matchAll(/(?:src|href)="([^"]+\.(?:js|css))"/g)].map(
+        (match) => match[1]!,
+      );
+      expect(assets.length, 'the docs page should reference scripts and styles').toBeGreaterThan(0);
+
+      for (const asset of assets) {
+        // The asset paths are absolute from the site root, so strip the API base.
+        const path = asset.replace(/^\/api/, '');
+        const res = await call(path);
+        expect(res.status, `${asset} should be served`).toBe(200);
+        expect(
+          res.headers.get('content-type') ?? '',
+          `${asset} must not be served as HTML`,
+        ).not.toContain('text/html');
+      }
+    });
+
     it('serves an OpenAPI 3 document describing this instance', async () => {
       const res = await call<{ openapi: string; servers: Array<{ url: string }> }>('/openapi.json');
       expect(res.status).toBe(200);

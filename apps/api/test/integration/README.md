@@ -19,7 +19,11 @@ PING_E2E_PASSWORD=supersecret \
 pnpm test
 ```
 
-Against the Compose stack:
+**Prefer running against the full Compose stack**, so requests travel through
+nginx exactly as they do in production. Pointing at the API container directly
+skips the reverse proxy, and some failures only exist there — the docs page once
+loaded its scripts from a path nginx does not proxy, so the browser received the
+SPA's HTML instead of JavaScript. Hitting the API directly hid that completely.
 
 ```bash
 docker compose up -d
