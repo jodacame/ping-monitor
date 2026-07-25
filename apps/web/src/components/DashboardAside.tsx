@@ -99,20 +99,34 @@ function Metric({
   icon: Icon,
   label,
   value,
+  unit,
 }: {
   icon: typeof Zap;
   label: string;
   value: string;
+  /** Optional small trailing unit (e.g. "ms", "s") kept on the value's line. */
+  unit?: string;
 }) {
   return (
     <div className="rounded-xl bg-elevated/50 p-3">
       <div className="flex items-center gap-1.5 text-muted">
-        <Icon size={13} />
-        <span className="text-[11px]">{label}</span>
+        <Icon size={13} className="shrink-0" />
+        <span className="truncate text-[11px]" title={label}>
+          {label}
+        </span>
       </div>
-      <div className="mt-1 text-lg font-semibold tabular-nums text-fg">{value}</div>
+      <div className="mt-1 whitespace-nowrap text-lg font-semibold tabular-nums text-fg">
+        {value}
+        {unit && <span className="ml-0.5 text-xs font-medium text-muted">{unit}</span>}
+      </div>
     </div>
   );
+}
+
+/** Split a formatted latency ("257 ms" / "1.23 s") into number and unit parts. */
+function splitLatency(text: string): { value: string; unit?: string } {
+  const match = /^(-?[\d.]+)\s*(\D+)$/.exec(text);
+  return match ? { value: match[1]!, unit: match[2] } : { value: text };
 }
 
 /** The dashboard's right-hand operations cockpit. */
@@ -167,7 +181,7 @@ export function DashboardAside({
           <Legend overview={overview} />
 
           <div className="grid grid-cols-3 gap-2 border-t border-border pt-4">
-            <Metric icon={Zap} label="Avg response" value={formatLatency(insights.avgLatencyMs)} />
+            <Metric icon={Zap} label="Latency" {...splitLatency(formatLatency(insights.avgLatencyMs))} />
             <Metric icon={AlertTriangle} label="Incidents" value={String(insights.incidents24h)} />
             <Metric icon={Radar} label="Monitors" value={String(overview.total)} />
           </div>
