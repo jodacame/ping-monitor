@@ -314,8 +314,11 @@ export class MonitorRepository {
   /** Pause/resume a monitor and mirror the flag onto its assignments. */
   async setEnabled(monitorId: string, enabled: boolean): Promise<void> {
     await this.db.query(
+      // The status casts are required: inside CASE, Postgres cannot infer the
+      // type of a bare parameter and defaults it to text, which fails against
+      // the smallint column.
       `UPDATE monitors
-       SET enabled = $2, status = CASE WHEN $2 THEN $3 ELSE $4 END
+       SET enabled = $2, status = CASE WHEN $2 THEN $3::smallint ELSE $4::smallint END
        WHERE id = $1`,
       [
         monitorId,

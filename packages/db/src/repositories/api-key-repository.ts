@@ -121,8 +121,34 @@ export class ApiKeyRepository {
       : null;
   }
 
+  /**
+   * Whether a key is still usable, by internal id. Used to re-check long-lived
+   * connections (WebSockets), which authenticate once at connect time and would
+   * otherwise outlive their own revocation.
+   */
+  async isActive(id: string): Promise<boolean> {
+    const res = await this.db.query(
+      `SELECT 1 FROM api_keys
+        WHERE id = $1
+          AND revoked_at IS NULL
+          AND (expires_at IS NULL OR expires_at > now())`,
+      [id],
+    );
+    return res.rows.length > 0;
+  }
+
+  /**
+   * Record that a key was used. Throttled to at most one write per minute per
+   * key: "last used" only needs minute precision, and a busy key would
+   * otherwise rewrite the same row on every single request.
+   */
   async touch(id: string): Promise<void> {
-    await this.db.query('UPDATE api_keys SET last_used_at = now() WHERE id = $1', [id]);
+    await this.db.query(
+      `UPDATE api_keys SET last_used_at = now()
+       WHERE id = $1
+         AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')`,
+      [id],
+    );
   }
 
   async revoke(publicId: string, workspaceId: string): Promise<boolean> {

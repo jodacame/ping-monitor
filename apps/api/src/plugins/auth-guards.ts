@@ -1,4 +1,4 @@
-import type { preHandlerHookHandler } from 'fastify';
+import type { preHandlerAsyncHookHandler, preHandlerHookHandler } from 'fastify';
 import { ForbiddenError, UnauthorizedError } from '@ping/core';
 import { WorkspaceRepository, WorkspaceRole } from '@ping/db';
 import type { AppContext } from '../context.js';
@@ -13,8 +13,8 @@ import { isApiKey } from '../services/api-key-service.js';
  *  - `requireUser` restricts a route to real user sessions (blocks API keys).
  */
 export interface AuthGuards {
-  readonly authenticate: preHandlerHookHandler;
-  readonly resolveWorkspace: preHandlerHookHandler;
+  readonly authenticate: preHandlerAsyncHookHandler;
+  readonly resolveWorkspace: preHandlerAsyncHookHandler;
   readonly requireUser: preHandlerHookHandler;
 }
 
@@ -25,7 +25,7 @@ function bearerToken(header: string | undefined): string | null {
 }
 
 export function createAuthGuards(ctx: AppContext): AuthGuards {
-  const authenticate: preHandlerHookHandler = async (request) => {
+  const authenticate: preHandlerAsyncHookHandler = async (request) => {
     const token = bearerToken(request.headers.authorization);
     if (!token) throw new UnauthorizedError('Missing bearer token');
 
@@ -49,7 +49,7 @@ export function createAuthGuards(ctx: AppContext): AuthGuards {
     }
   };
 
-  const resolveWorkspace: preHandlerHookHandler = async (request) => {
+  const resolveWorkspace: preHandlerAsyncHookHandler = async (request) => {
     const params = request.params as { workspaceId?: string };
     const workspaceId = params.workspaceId;
     if (!workspaceId) throw new ForbiddenError('Workspace not specified');
@@ -58,6 +58,12 @@ export function createAuthGuards(ctx: AppContext): AuthGuards {
       if (request.apiKey.workspacePublicId !== workspaceId) {
         throw new ForbiddenError('This API key is not valid for this workspace');
       }
+      // An API key acts as an admin of its workspace. That is safe only while
+      // every membership is an Owner (workspaces are single-member today: there
+      // is no route that adds a member, so `addMember` runs only at register /
+      // create-workspace time). WHOEVER ADDS MEMBER MANAGEMENT must also gate
+      // key creation by role and cap this to the creating member's role, or a
+      // viewer will be able to mint an admin credential.
       request.workspace = {
         id: request.apiKey.workspaceId,
         publicId: workspaceId,

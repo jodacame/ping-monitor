@@ -40,13 +40,15 @@ export function registerAuthRoutes(
     return { ok: true };
   });
 
-  app.get('/auth/me', { preHandler: [guards.authenticate] }, async (request) => {
+  // Both endpoints act on a person, not a workspace: an API key has no user
+  // behind it, so `requireUser` turns that into a 403 instead of a 500.
+  app.get('/auth/me', { preHandler: [guards.authenticate, guards.requireUser] }, async (request) => {
     return ctx.auth.me(request.authUser!.userId);
   });
 
   app.post(
     '/auth/change-password',
-    { preHandler: [guards.authenticate], ...authLimit },
+    { preHandler: [guards.authenticate, guards.requireUser], ...authLimit },
     async (request) => {
       const { currentPassword, newPassword } = changePasswordSchema.parse(request.body);
       return ctx.auth.changePassword(

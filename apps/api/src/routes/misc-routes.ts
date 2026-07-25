@@ -11,7 +11,7 @@ export function registerMiscRoutes(
   guards: AuthGuards,
 ): void {
   // Liveness: process is up.
-  app.get('/health', async () => ({ status: 'ok' }));
+  app.get('/health', () => ({ status: 'ok' }));
 
   // Readiness: dependencies reachable.
   app.get('/health/ready', async (_request, reply) => {
@@ -23,12 +23,21 @@ export function registerMiscRoutes(
     return { status: 'ready' };
   });
 
-  app.get('/workspaces', { preHandler: [guards.authenticate] }, async (request) => {
-    const memberships = await new WorkspaceRepository(ctx.db).listForUser(request.authUser!.userId);
-    return memberships.map((w) => ({ id: w.publicId, name: w.name, slug: w.slug, role: w.role }));
-  });
+  // Workspace listing/creation is per-user, so an API key (which is bound to a
+  // single workspace) is rejected with 403 rather than dereferencing a missing
+  // user.
+  app.get(
+    '/workspaces',
+    { preHandler: [guards.authenticate, guards.requireUser] },
+    async (request) => {
+      const memberships = await new WorkspaceRepository(ctx.db).listForUser(
+        request.authUser!.userId,
+      );
+      return memberships.map((w) => ({ id: w.publicId, name: w.name, slug: w.slug, role: w.role }));
+    },
+  );
 
-  app.post('/workspaces', { preHandler: [guards.authenticate] }, async (request, reply) => {
+  app.post('/workspaces', { preHandler: [guards.authenticate, guards.requireUser] }, async (request, reply) => {
     const { name } = createWorkspaceSchema.parse(request.body);
     void reply.status(201);
     return ctx.auth.createWorkspace(request.authUser!.userId, name);

@@ -8,6 +8,24 @@ import type { AppContext } from '../context.js';
  * consistent JSON envelopes `{ error: { code, message, details? } }`, and hides
  * internals behind a generic 500 while logging the real cause.
  */
+/** Map a non-domain HTTP status onto the public error-code vocabulary. */
+function codeForStatus(status: number): ErrorCode {
+  switch (status) {
+    case 401:
+      return ErrorCode.Unauthorized;
+    case 403:
+      return ErrorCode.Forbidden;
+    case 404:
+      return ErrorCode.NotFound;
+    case 409:
+      return ErrorCode.Conflict;
+    case 429:
+      return ErrorCode.RateLimited;
+    default:
+      return ErrorCode.Validation;
+  }
+}
+
 export function registerErrorHandler(app: FastifyInstance, ctx: AppContext): void {
   app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
     if (error instanceof ZodError) {
@@ -32,11 +50,13 @@ export function registerErrorHandler(app: FastifyInstance, ctx: AppContext): voi
       return;
     }
 
-    // Fastify's own validation / payload errors carry a statusCode < 500.
+    // Errors raised by Fastify itself or by plugins (rate limiting, payload
+    // limits) carry a statusCode < 500 but no domain code, so derive one from
+    // the status instead of labelling everything a validation error.
     const statusCode = typeof error.statusCode === 'number' ? error.statusCode : 500;
     if (statusCode < 500) {
       void reply.status(statusCode).send({
-        error: { code: ErrorCode.Validation, message: error.message },
+        error: { code: codeForStatus(statusCode), message: error.message },
       });
       return;
     }
