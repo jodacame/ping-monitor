@@ -10,6 +10,7 @@ import {
   NotificationSeverity,
   createConnector,
   redactConfig,
+  restoreRedacted,
   validateChannelConfig,
 } from '@ping/notifications';
 
@@ -75,9 +76,15 @@ export class ChannelService {
   ): Promise<NotificationChannelRecord> {
     const existing = await this.get(workspaceId, publicId);
     // Re-validate config against the (immutable) channel type when changed.
+    // Masked values are restored first, so a client that edits a config it read
+    // back from the API keeps its secrets instead of overwriting them with the
+    // placeholder.
     const config =
       input.config !== undefined
-        ? validateChannelConfig(existing.type as ConnectorType, input.config)
+        ? validateChannelConfig(
+            existing.type as ConnectorType,
+            restoreRedacted(input.config, existing.config),
+          )
         : undefined;
 
     const updated = await new NotificationChannelRepository(this.db).update(publicId, workspaceId, {

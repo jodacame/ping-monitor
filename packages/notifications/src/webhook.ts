@@ -38,7 +38,18 @@ export function isValidJsonTemplate(template: string): boolean {
 
 export const webhookConfigSchema = z
   .object({
-    url: z.string().url(),
+    // http/https only: the server performs this request, so schemes like file:
+    // or gopher: have no legitimate use and only widen the attack surface.
+    // Private and loopback hosts stay allowed on purpose — alerting an internal
+    // service (ntfy, Home Assistant, an intranet chat) is a core self-hosted
+    // use case, and blocking it would break working installs.
+    url: z
+      .string()
+      .url()
+      .refine(
+        (value) => /^https?:$/.test(new URL(value).protocol),
+        'Webhook URL must use http or https',
+      ),
     method: z.enum(['POST', 'PUT']).default('POST'),
     contentType: z.string().default('application/json'),
     headers: z.record(z.string()).default({}),
@@ -120,8 +131,10 @@ export class WebhookConnector implements NotificationConnector {
         signal: controller.signal,
       });
       if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`Webhook responded ${res.status}: ${text.slice(0, 200)}`);
+        // Deliberately status-only. The caller can be an API key holder, and
+        // echoing the upstream body would turn "test this channel" into a probe
+        // that reads back internal endpoints (cloud metadata, private services).
+        throw new Error(`Webhook responded ${res.status} ${res.statusText}`.trim());
       }
     } finally {
       clearTimeout(timer);
