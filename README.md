@@ -172,11 +172,22 @@ curl https://your-host/api/workspaces/WORKSPACE_ID/monitors \
 ```
 
 ```js
+// The key goes in the subprotocol so it never lands in a URL or an access log.
 const ws = new WebSocket("wss://your-host/api/ws", ["pk_xxx"]);
 ws.onmessage = (e) => console.log(JSON.parse(e.data)); // monitor.status_changed
 ```
 
-Full reference: [`docs/API.md`](docs/API.md).
+**Your instance documents itself.** Every deployment serves an interactive
+reference generated from the server's own validation schemas, so it can never go
+stale:
+
+| | |
+|---|---|
+| Interactive docs | `https://your-host/api/docs` |
+| OpenAPI 3 document | `https://your-host/api/openapi.json` |
+
+For how authentication, workspaces, rate-limit headers and the WebSocket fit
+together, see [`docs/API.md`](docs/API.md).
 
 ## 🗺️ Roadmap
 
